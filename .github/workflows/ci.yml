@@ -80,7 +80,7 @@ jobs:
           output: codeql-results
 
       - name: Enforce zero unsuppressed CodeQL findings
-        run: npm run sast:check -- codeql-results
+        run: node scripts/check-codeql-sarif.mjs codeql-results
 
       - name: Upload repository-owned CodeQL evidence
         if: always()
