@@ -29,3 +29,5 @@ npm-debug.log*
 # Security scanner output
 results.sarif
 scorecard-policy-report.json
+codeql-results/
+codeql-policy-report.json
