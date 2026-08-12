@@ -65,7 +65,7 @@ Enable:
 - Dependabot alerts.
 - Dependabot security updates.
 - Grouped Dependabot version updates from `.github/dependabot.yml`.
-- Code scanning with the committed CodeQL workflow.
+- Code scanning with GitHub CodeQL default setup. Keep default setup enabled unless a reviewed pull request replaces it with an advanced configuration; GitHub does not process both configurations at the same time.
 - Secret scanning.
 - Secret scanning push protection.
 - Validity checks for detected secrets when available.
