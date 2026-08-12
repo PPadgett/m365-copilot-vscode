@@ -110,6 +110,7 @@ test('extractCopilotText rejects invalid or empty payloads', () => {
 test('readBoundedResponseText returns bounded UTF-8 content', async () => {
   const response = new Response('hello \u{1F30E}');
   assert.equal(await readBoundedResponseText(response, 64), 'hello \u{1F30E}');
+  assert.equal(await readBoundedResponseText(new Response('12345'), 5), '12345');
   assert.equal(await readBoundedResponseText(new Response(null), 64), '');
 });
 
@@ -160,6 +161,16 @@ test('inspectDelegatedGraphToken rejects wrong audience, expiry, and missing sco
   const token = jwt({ aud: 'other-api', exp: Math.floor(now / 1000) - 1, scp: 'User.Read' });
   const inspection = inspectDelegatedGraphToken(token, now);
   assert.equal(inspection.errors.length, 3);
+});
+
+test('inspectDelegatedGraphToken rejects a token expiring exactly now', () => {
+  const now = Date.UTC(2026, 7, 11, 12, 0, 0);
+  const token = jwt({
+    aud: 'https://graph.microsoft.com',
+    exp: Math.floor(now / 1000),
+    scp: REQUIRED_GRAPH_SCOPES.join(' ')
+  });
+  assert.match(inspectDelegatedGraphToken(token, now).errors.join(' '), /expired/);
 });
 
 test('inspectDelegatedGraphToken warns when expiry is near', () => {

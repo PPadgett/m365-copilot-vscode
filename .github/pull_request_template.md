@@ -9,20 +9,25 @@ Explain changes to authentication, scopes, network destinations, prompt context,
 ## Validation
 
 - [ ] `npm run verify`
+- [ ] `npm run test:unit`
+- [ ] `npm run test:integration`
 - [ ] `FUZZ_RUNS=5000 npm run fuzz`
 - [ ] `npm run package`
 - [ ] `npm run validate:vsix`
 - [ ] `npm run reproducible`
+- [ ] `npm run performance`
+- [ ] `npm run smoke:vsix`
 - [ ] `npm run sbom`
 - [ ] `npm run validate:sbom`
 - [ ] `npm run checksums`
-- [ ] Scorecard or repository-policy changes were evaluated against the committed policies
+- [ ] Scorecard, QA, or repository-policy changes were evaluated against the committed policies
 - [ ] Manual Extension Development Host testing, when behavior changed
 
 ## Documentation
 
 - [ ] README or user documentation updated
 - [ ] Changelog updated
+- [ ] QA strategy updated when a test category or applicability decision changed
 - [ ] Threat model or architecture updated when a trust boundary changed
 - [ ] No documentation change is needed
 

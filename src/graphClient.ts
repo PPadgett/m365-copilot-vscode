@@ -1,19 +1,14 @@
 import * as vscode from 'vscode';
 import { AuthManager } from './auth';
+import { validateTimeZone } from './core';
+import { postJsonRecord } from './httpClient';
 import {
-  extractCopilotText,
-  formatGraphError,
-  isPlainRecord,
-  readBoundedResponseText,
-  validateTimeZone
-} from './core';
-
-const GRAPH_ROOT = 'https://graph.microsoft.com/beta';
+  buildChatRequest,
+  graphUrl,
+  parseConversationId,
+  requireCopilotText
+} from './graphProtocol';
 const MAX_GRAPH_RESPONSE_BYTES = 5 * 1024 * 1024;
-
-interface CopilotConversation {
-  id: string;
-}
 
 export class GraphCopilotClient {
   public constructor(private readonly auth: AuthManager) {}
@@ -42,45 +37,29 @@ export class GraphCopilotClient {
       );
     }
 
-    const conversation = await this.request<CopilotConversation>(
+    const conversation = await this.request<Record<string, unknown>>(
       '/copilot/conversations',
       accessToken,
       {},
       token
     );
+    const conversationId = parseConversationId(conversation);
 
-    if (!conversation.id) {
-      throw new Error('Microsoft Graph did not return a Copilot conversation ID.');
-    }
-
-    const webGrounding = config.get<boolean>('webGrounding', false);
-    const body: Record<string, unknown> = {
-      message: { text: prompt },
-      locationHint: { timeZone: currentTimeZone(config) }
-    };
-
-    if (!webGrounding) {
-      body.contextualResources = {
-        webContext: { isWebEnabled: false }
-      };
-    }
-
-    const response = await this.request<unknown>(
-      `/copilot/conversations/${encodeURIComponent(conversation.id)}/chat`,
+    const response = await this.request<Record<string, unknown>>(
+      `/copilot/conversations/${encodeURIComponent(conversationId)}/chat`,
       accessToken,
-      body,
+      buildChatRequest({
+        prompt,
+        timeZone: currentTimeZone(config),
+        webGrounding: config.get<boolean>('webGrounding', false)
+      }),
       token
     );
 
-    const answer = extractCopilotText(response);
-    if (answer) {
-      return answer;
-    }
-
-    throw new Error('Microsoft 365 Copilot returned no text response.');
+    return requireCopilotText(response);
   }
 
-  private async request<T>(
+  private async request<T extends Record<string, unknown>>(
     path: string,
     accessToken: string,
     body: unknown,
@@ -98,34 +77,12 @@ export class GraphCopilotClient {
     }, timeoutSeconds * 1000);
 
     try {
-      const response = await fetch(`${GRAPH_ROOT}${path}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json',
-          'Cache-Control': 'no-store',
-          'Content-Type': 'application/json',
-          Pragma: 'no-cache'
-        },
-        body: JSON.stringify(body),
-        redirect: 'error',
-        signal: controller.signal
+      return await postJsonRecord<T>(graphUrl(path), {
+        accessToken,
+        body,
+        signal: controller.signal,
+        maxResponseBytes: MAX_GRAPH_RESPONSE_BYTES
       });
-
-      const raw = await readBoundedResponseText(response, MAX_GRAPH_RESPONSE_BYTES);
-      if (!response.ok) {
-        throw new Error(formatGraphError(response.status, raw));
-      }
-
-      if (!raw.trim()) {
-        throw new Error(`Microsoft Graph ${response.status} returned an empty response body.`);
-      }
-
-      const parsed = JSON.parse(raw) as unknown;
-      if (!isPlainRecord(parsed)) {
-        throw new Error('Microsoft Graph returned an unexpected JSON response.');
-      }
-      return parsed as T;
     } catch (error) {
       if (cancellationToken.isCancellationRequested) {
         throw new vscode.CancellationError();
