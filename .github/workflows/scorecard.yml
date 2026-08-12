@@ -88,6 +88,8 @@ jobs:
         id: scorecard-policy
         if: needs.analysis.result == 'success'
         continue-on-error: true
+        env:
+          SCORECARD_POLICY_PROFILE: ${{ github.event_name == 'pull_request' && 'pull-request' || 'repository' }}
         run: node scripts/check-scorecard-sarif.mjs results.sarif
 
       - name: Upload Scorecard policy report
