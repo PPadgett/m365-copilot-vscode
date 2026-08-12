@@ -5,6 +5,7 @@ const root = resolve(import.meta.dirname, '..');
 const sarifArgument = process.argv[2] ?? 'results.sarif';
 const policyArgument = process.argv[3] ?? '.github/scorecard-policy.json';
 const reportArgument = process.argv[4] ?? 'scorecard-policy-report.json';
+const profileName = process.argv[5] ?? process.env.SCORECARD_POLICY_PROFILE ?? 'repository';
 const sarifPath = resolve(root, sarifArgument);
 const policyPath = resolve(root, policyArgument);
 const reportPath = resolve(root, reportArgument);
@@ -14,26 +15,36 @@ const sarif = JSON.parse(await readFile(sarifPath, 'utf8'));
 const policy = JSON.parse(await readFile(policyPath, 'utf8'));
 validatePolicy(policy);
 
+const selectedRuleIds = policy.profiles[profileName];
+if (!selectedRuleIds) {
+  throw new Error(`Unknown Scorecard policy profile ${JSON.stringify(profileName)}.`);
+}
+
 const scorecard = collectScorecardResults(sarif);
 const entries = [];
 const failures = [];
-const configuredRuleIds = new Set(Object.keys(policy.checks));
+const allConfiguredRuleIds = new Set(Object.keys(policy.checks));
 
-for (const [ruleId, configuration] of Object.entries(policy.checks)) {
+for (const ruleId of selectedRuleIds) {
+  const configuration = policy.checks[ruleId];
   const minimumScore = configuration.minimumScore ?? policy.defaultMinimumScore;
   const result = scorecard.results.get(ruleId);
+  const waiver = configuration.waiver ?? null;
 
   if (!scorecard.knownRuleIds.has(ruleId)) {
+    const waived = isActiveWaiver(waiver, evaluatedAt);
     entries.push({
       ruleId,
       name: configuration.name,
       score: null,
       minimumScore,
-      status: 'fail',
+      status: waived ? 'waived' : 'fail',
       message: 'The expected check was absent from the Scorecard SARIF rule catalog.',
-      waiver: configuration.waiver ?? null
+      waiver
     });
-    failures.push(`${configuration.name} (${ruleId}) was absent from the Scorecard SARIF rule catalog.`);
+    if (!waived) {
+      failures.push(`${configuration.name} (${ruleId}) was absent from the Scorecard SARIF rule catalog.`);
+    }
     continue;
   }
 
@@ -45,11 +56,11 @@ for (const [ruleId, configuration] of Object.entries(policy.checks)) {
     minimumScore,
     status: 'pass',
     message: result?.message ?? 'No suboptimal Scorecard result was emitted.',
-    waiver: configuration.waiver ?? null
+    waiver
   };
 
   if (score < minimumScore) {
-    if (isActiveWaiver(configuration.waiver, evaluatedAt)) {
+    if (isActiveWaiver(waiver, evaluatedAt)) {
       entry.status = 'waived';
     } else {
       entry.status = 'fail';
@@ -61,7 +72,7 @@ for (const [ruleId, configuration] of Object.entries(policy.checks)) {
 
 if (policy.failOnUnconfiguredResults) {
   for (const [ruleId, result] of scorecard.results) {
-    if (configuredRuleIds.has(ruleId)) {
+    if (allConfiguredRuleIds.has(ruleId)) {
       continue;
     }
     const minimumScore = policy.defaultMinimumScore;
@@ -83,8 +94,9 @@ if (policy.failOnUnconfiguredResults) {
 
 entries.sort((left, right) => left.name.localeCompare(right.name));
 const report = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   evaluatedAt: evaluatedAt.toISOString(),
+  profile: profileName,
   sarifFile: sarifArgument,
   policyFile: policyArgument,
   scorecardRuns: scorecard.runCount,
@@ -152,8 +164,11 @@ function collectScorecardResults(document) {
 }
 
 function validatePolicy(value) {
-  if (!value || value.version !== 1 || !value.checks || typeof value.checks !== 'object') {
-    throw new TypeError('Scorecard policy must use version 1 and define checks.');
+  if (!value || value.version !== 2 || !value.checks || typeof value.checks !== 'object') {
+    throw new TypeError('Scorecard policy must use version 2 and define checks.');
+  }
+  if (!value.profiles || typeof value.profiles !== 'object') {
+    throw new TypeError('Scorecard policy must define profiles.');
   }
   if (value.failOnUnconfiguredResults !== true) {
     throw new TypeError('Scorecard policy must fail on unconfigured results.');
@@ -173,6 +188,16 @@ function validatePolicy(value) {
       parseWaiverEnd(configuration.waiver);
       if (typeof configuration.waiver.reason !== 'string' || configuration.waiver.reason.length < 20) {
         throw new TypeError(`${ruleId} waiver must include a substantive reason.`);
+      }
+    }
+  }
+  for (const [name, ruleIds] of Object.entries(value.profiles)) {
+    if (!Array.isArray(ruleIds) || ruleIds.length === 0 || new Set(ruleIds).size !== ruleIds.length) {
+      throw new TypeError(`Scorecard profile ${name} must contain unique check IDs.`);
+    }
+    for (const ruleId of ruleIds) {
+      if (!value.checks[ruleId]) {
+        throw new TypeError(`Scorecard profile ${name} references unknown check ${ruleId}.`);
       }
     }
   }
@@ -206,7 +231,7 @@ function parseEvaluationDate(value) {
 
 function renderSummary(report) {
   const lines = [
-    '## OpenSSF Scorecard policy',
+    `## OpenSSF Scorecard policy (${report.profile})`,
     '',
     '| Check | Score | Minimum | Status |',
     '| --- | ---: | ---: | --- |'
