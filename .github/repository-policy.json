@@ -10,6 +10,11 @@
     "allow_update_branch": true
   },
   "privateVulnerabilityReporting": true,
+  "copilotCodeReview": {
+    "enabled": true,
+    "reviewDraftPullRequests": false,
+    "reviewOnPush": false
+  },
   "requiredStatusChecks": [
     "Required",
     "Fuzz",
