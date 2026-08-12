@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { containsExactHttpUrl } from './security-policy-links.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const failures = [];
@@ -41,9 +42,13 @@ const requiredFiles = [
   'package.json',
   'scripts/apply-github-ruleset.mjs',
   'scripts/audit-github-rules.mjs',
+  'scripts/check-codeql-sarif.mjs',
   'scripts/check-scorecard-sarif.mjs',
+  'scripts/security-policy-links.mjs',
+  'test/codeql-sarif.test.cjs',
   'test/core.fuzz.test.js',
-  'test/scorecard-policy.test.cjs'
+  'test/scorecard-policy.test.cjs',
+  'test/security-policy-links.test.cjs'
 ];
 
 for (const path of requiredFiles) {
@@ -61,7 +66,7 @@ if (pkg.preview !== true) fail('The extension must remain marked preview while i
 if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) fail('Runtime npm dependencies require a separate security review.');
 if (pkg.devDependencies?.['fast-check'] !== '4.9.0') fail('fast-check must be pinned to reviewed version 4.9.0.');
 if (pkg.capabilities?.untrustedWorkspaces?.supported !== false) fail('The extension must be disabled in untrusted workspaces.');
-for (const name of ['verify', 'fuzz', 'scorecard:check', 'repository:audit', 'ruleset:apply']) {
+for (const name of ['verify', 'fuzz', 'sast:check', 'scorecard:check', 'repository:audit', 'ruleset:apply']) {
   if (typeof pkg.scripts?.[name] !== 'string') fail(`package.json is missing required script ${name}.`);
 }
 
@@ -72,7 +77,7 @@ if (!lock.packages?.['node_modules/fast-check']?.integrity?.startsWith('sha512-'
 
 const security = await text('SECURITY.md');
 const advisoryUrl = 'https://github.com/PPadgett/m365-copilot-vscode/security/advisories/new';
-if (!security.includes(advisoryUrl)) fail(`SECURITY.md must link directly to ${advisoryUrl}.`);
+if (!containsExactHttpUrl(security, advisoryUrl)) fail(`SECURITY.md must link directly to ${advisoryUrl}.`);
 if (!/vulnerab|disclos/i.test(security)) fail('SECURITY.md must document vulnerability disclosure.');
 
 const fuzzTest = await text('test/core.fuzz.test.js');
@@ -90,12 +95,17 @@ for (const entry of await readdir(workflowDir)) {
 
 const ci = await text('.github/workflows/ci.yml');
 if (!/^  required:\s*$/m.test(ci) || !/^    name: Required\s*$/m.test(ci)) fail('CI must expose a stable Required aggregate check.');
+if (!/^  sast:\s*$/m.test(ci) || !/^    name: SAST\s*$/m.test(ci)) fail('CI must expose the repository-owned SAST job.');
+if (!/github\/codeql-action\/init@[0-9a-f]{40}/.test(ci) || !/github\/codeql-action\/analyze@[0-9a-f]{40}/.test(ci)) fail('CI SAST must use pinned CodeQL init and analyze actions.');
+if (!/upload:\s*never/.test(ci) || !/check-codeql-sarif\.mjs/.test(ci)) fail('CI SAST must retain SARIF locally and enforce the repository-owned CodeQL policy.');
+if (!/^      - sast\s*$/m.test(ci) || !/SAST_RESULT:\s*\$\{\{ needs\.sast\.result \}\}/.test(ci) || !/test "\$SAST_RESULT" = "success"/.test(ci)) fail('The stable Required check must fail when SAST fails.');
 const fuzz = await text('.github/workflows/fuzz.yml');
 if (!/\bpull_request\s*:/.test(fuzz) || !/\bschedule\s*:/.test(fuzz) || !/npm run fuzz/.test(fuzz) || !/^    name: Fuzz\s*$/m.test(fuzz)) fail('Fuzz workflow must run on pull requests and a schedule with a stable Fuzz check.');
 const repositoryWorkflow = await text('.github/workflows/repository-policy.yml');
 if (!/npm run repository:audit/.test(repositoryWorkflow) || !/^    name: Repository Policy\s*$/m.test(repositoryWorkflow)) fail('Repository policy workflow must audit live settings with a stable check name.');
 const scorecard = await text('.github/workflows/scorecard.yml');
 if (!/check-scorecard-sarif\.mjs/.test(scorecard) || !/^    name: Scorecard Policy\s*$/m.test(scorecard) || !/\bpull_request\s*:/.test(scorecard)) fail('Scorecard workflow must evaluate pull requests with a fail-closed Scorecard Policy check.');
+if (!/SCORECARD_POLICY_PROFILE:/.test(scorecard) || !/pull-request/.test(scorecard) || !/repository/.test(scorecard)) fail('Scorecard workflow must select pull-request and repository policy profiles explicitly.');
 
 if (failures.length > 0) {
   console.error(`Repository policy failed with ${failures.length} finding(s):`);
@@ -137,10 +147,17 @@ function validateRepositoryPolicy(policy, desired) {
 }
 
 function validateScorecardPolicy(policy) {
-  if (policy.version !== 1 || policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) fail('Scorecard policy must default to 10 and fail on unconfigured results.');
-  const ids = ['BranchProtectionID', 'CodeReviewID', 'SecurityPolicyID', 'FuzzingID', 'MaintainedID', 'CIIBestPracticesID'];
+  if (policy.version !== 2 || policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) fail('Scorecard policy must use version 2, default to 10, and fail on unconfigured results.');
+  const ids = ['BranchProtectionID', 'CodeReviewID', 'SecurityPolicyID', 'FuzzingID', 'SASTID', 'MaintainedID', 'CIIBestPracticesID'];
   for (const id of ids) if (!policy.checks?.[id]) fail(`Scorecard policy is missing ${id}.`);
-  for (const id of ['BranchProtectionID', 'SecurityPolicyID', 'FuzzingID']) if (policy.checks?.[id]?.waiver) fail(`${id} must not be waived.`);
+  const expectedProfiles = {
+    'pull-request': ['SecurityPolicyID', 'FuzzingID', 'SASTID'],
+    repository: ids
+  };
+  for (const [name, expected] of Object.entries(expectedProfiles)) {
+    if (!sameSet(policy.profiles?.[name] ?? [], expected)) fail(`Scorecard profile ${name} must contain the expected checks.`);
+  }
+  for (const id of ['BranchProtectionID', 'SecurityPolicyID', 'FuzzingID', 'SASTID']) if (policy.checks?.[id]?.waiver) fail(`${id} must not be waived.`);
   for (const [id, config] of Object.entries(policy.checks ?? {})) {
     const minimum = config.minimumScore ?? policy.defaultMinimumScore;
     if (!Number.isFinite(minimum) || minimum < 0 || minimum > 10) fail(`${id} minimum score must be from 0 through 10.`);
