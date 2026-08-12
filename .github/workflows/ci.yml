@@ -100,3 +100,20 @@ jobs:
           path: artifacts/
           if-no-files-found: error
           retention-days: 14
+
+  required:
+    name: Required
+    if: always()
+    needs:
+      - quality
+      - package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Enforce required CI jobs
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+        run: |
+          test "$QUALITY_RESULT" = "success"
+          test "$PACKAGE_RESULT" = "success"

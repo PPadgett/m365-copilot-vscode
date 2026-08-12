@@ -63,10 +63,15 @@
     "validate:vsix": "node scripts/validate-vsix.mjs",
     "reproducible": "node scripts/check-reproducible.mjs",
     "checksums": "node scripts/generate-checksums.mjs",
-    "validate:sbom": "node scripts/validate-sbom.mjs"
+    "validate:sbom": "node scripts/validate-sbom.mjs",
+    "fuzz": "npm run build && node --test test/core.fuzz.test.js",
+    "scorecard:check": "node scripts/check-scorecard-sarif.mjs",
+    "repository:audit": "node scripts/audit-github-rules.mjs",
+    "ruleset:apply": "node scripts/apply-github-ruleset.mjs"
   },
   "devDependencies": {
     "@types/vscode": "1.125.0",
+    "fast-check": "4.9.0",
     "typescript": "7.0.2"
   },
   "contributes": {

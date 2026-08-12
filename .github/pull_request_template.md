@@ -9,12 +9,14 @@ Explain changes to authentication, scopes, network destinations, prompt context,
 ## Validation
 
 - [ ] `npm run verify`
+- [ ] `FUZZ_RUNS=5000 npm run fuzz`
 - [ ] `npm run package`
 - [ ] `npm run validate:vsix`
 - [ ] `npm run reproducible`
 - [ ] `npm run sbom`
 - [ ] `npm run validate:sbom`
 - [ ] `npm run checksums`
+- [ ] Scorecard or repository-policy changes were evaluated against the committed policies
 - [ ] Manual Extension Development Host testing, when behavior changed
 
 ## Documentation

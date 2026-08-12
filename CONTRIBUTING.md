@@ -32,6 +32,7 @@ Before opening a pull request, run:
 
 ```bash
 npm run verify
+FUZZ_RUNS=5000 npm run fuzz
 npm run package
 npm run validate:vsix
 npm run reproducible
@@ -46,11 +47,13 @@ A pull request must pass:
 - Repository policy and formatting checks.
 - TypeScript strict compilation.
 - Unit tests with enforced coverage thresholds.
+- Property-based fuzz tests for parsers, validators, and untrusted input boundaries.
 - Node.js 22 and 24 CI jobs.
 - Deterministic package creation, semantic VSIX validation, and archive validation.
 - CodeQL analysis.
 - Dependency review.
 - Secret scanning.
+- OpenSSF Scorecard policy and live repository-settings drift checks.
 
 ## Code guidelines
 
@@ -60,7 +63,7 @@ A pull request must pass:
 - Bound untrusted data before parsing or displaying it.
 - Keep experimental capabilities opt-in.
 - Preserve cancellation and request timeouts for network operations.
-- Add unit tests for parsing, validation, and security-boundary changes.
+- Add unit tests and property-based tests for parsing, validation, and security-boundary changes.
 - Keep user-facing error messages actionable without exposing sensitive response data.
 - Use two-space indentation, LF line endings, and a final newline.
 

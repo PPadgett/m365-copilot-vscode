@@ -4,13 +4,22 @@
 # Security- and release-sensitive paths
 /.github/workflows/ @PPadgett
 /.github/dependabot.yml @PPadgett
+/.github/scorecard-policy.json @PPadgett
+/.github/repository-policy.json @PPadgett
+/.github/rulesets/ @PPadgett
 /SECURITY.md @PPadgett
 /docs/threat-model.md @PPadgett
+/docs/scorecard-remediation.md @PPadgett
+/scripts/apply-github-ruleset.mjs @PPadgett
+/scripts/audit-github-rules.mjs @PPadgett
 /scripts/build-vsix.mjs @PPadgett
+/scripts/check-repo.mjs @PPadgett
 /scripts/check-reproducible.mjs @PPadgett
+/scripts/check-scorecard-sarif.mjs @PPadgett
 /scripts/validate-vsix.mjs @PPadgett
 /scripts/validate-sbom.mjs @PPadgett
 /package-lock.json @PPadgett
 /src/core.ts @PPadgett
 /src/auth.ts @PPadgett
 /src/graphClient.ts @PPadgett
+/test/core.fuzz.test.js @PPadgett

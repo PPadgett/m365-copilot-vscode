@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. The project fol
 
 ## [Unreleased]
 
+### Added
+
+- Property-based fuzz tests for token, tool-call, response-boundary, time-zone, completion, and Graph-error parsing.
+- Pull-request and scheduled fuzz workflow with a stable required check.
+- Fail-closed OpenSSF Scorecard policy evaluation with documented, expiring waivers.
+- Committed GitHub repository-policy and branch-ruleset specifications plus live drift auditing.
+
+### Security
+
+- Added a direct private-vulnerability-reporting link to the security policy.
+- Added a stable aggregate CI check for branch protection.
+- Added repository settings automation that disables merge commits and rebases, deletes merged branches, and requires strict reviewed pull requests.
+
 ### Planned
 
 - Evaluate Microsoft Graph streaming through `chatOverStream`.

@@ -11,7 +11,11 @@ This project is a preview built on a Microsoft Graph beta API. Security support 
 
 ## Report a vulnerability
 
-Use GitHub **Private vulnerability reporting** from the repository's **Security** tab. Do not open a public issue for a vulnerability and do not include a real access token, refresh token, proprietary source code, or tenant data in a report.
+Submit a private report through GitHub Private Vulnerability Reporting:
+
+**https://github.com/PPadgett/m365-copilot-vscode/security/advisories/new**
+
+Do not open a public issue for a vulnerability, and do not include a real access token, refresh token, proprietary source code, tenant data, or personal information in a report.
 
 Include, when safe:
 
@@ -21,7 +25,7 @@ Include, when safe:
 - Relevant logs with credentials and personal data removed.
 - Suggested mitigation, if known.
 
-If private vulnerability reporting is unavailable, open a minimal public issue asking the maintainer to establish a private channel. Do not disclose exploit details in that issue.
+If the private reporting form is unavailable, open a minimal public issue asking the maintainer to restore the private channel. Do not disclose vulnerability or exploit details in that issue.
 
 ## Response targets
 

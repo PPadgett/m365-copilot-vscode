@@ -40,6 +40,7 @@ The repository location does not need to be GitHub. GitHub is used only to devel
 - Disables experimental tool calling and inline completions by default.
 - Applies request timeouts, a configurable prompt-size boundary, and a fixed 5 MiB response-body limit.
 - Sends no project telemetry and has no runtime npm dependencies.
+- Uses property-based fuzz tests for security-sensitive parsers and a fail-closed OpenSSF Scorecard policy gate.
 
 ## Requirements
 
@@ -157,6 +158,7 @@ Only nearby text and the file's base name are included in an inline-completion p
 ```bash
 npm ci --ignore-scripts
 npm run verify
+FUZZ_RUNS=5000 npm run fuzz
 npm run package
 npm run validate:vsix
 npm run reproducible
@@ -176,6 +178,7 @@ The project deliberately has no runtime npm dependencies. The repository uses ex
 - [Threat model](docs/threat-model.md)
 - [Release and verification guide](docs/releasing.md)
 - [Required GitHub repository settings](docs/repository-settings.md)
+- [OpenSSF Scorecard remediation and policy](docs/scorecard-remediation.md)
 - [Security policy](SECURITY.md)
 - [Support policy](SUPPORT.md)
 - [Contributing guide](CONTRIBUTING.md)
