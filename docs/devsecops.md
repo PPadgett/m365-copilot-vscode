@@ -10,13 +10,13 @@ The pipeline is designed to make every change reviewable, every build repeatable
 | --- | --- | --- |
 | Source | Exact dependency versions, committed lockfile, no runtime npm dependencies, security-focused contribution rules | `package.json`, `package-lock.json`, `CONTRIBUTING.md` |
 | Local validation | Repository policy checks, strict TypeScript build, unit tests, coverage thresholds, property-based fuzz tests, SARIF policy regression tests | `npm run verify`, `npm run fuzz`, `npm run sast:check` |
-| Pull request | Node.js 22 and 24 builds, repository-owned CodeQL, package construction, semantic VSIX validation, reproducibility, dependency audit, stable aggregate check | `.github/workflows/ci.yml` |
+| Pull request | Node.js 22 and 24 builds, repository-owned CodeQL, package construction, semantic VSIX validation, reproducibility, dependency audit, stable aggregate check, and advisory Copilot review when the author is eligible | `.github/workflows/ci.yml`, `.github/rulesets/main.json`, `.github/copilot-instructions.md` |
 | Static analysis | A repository-owned CodeQL run retains SARIF and fails on every unsuppressed finding; GitHub CodeQL default setup independently uploads and tracks alerts | `.github/workflows/ci.yml`, GitHub code-scanning settings |
 | Dependency governance | Vulnerability and license review for dependency changes; weekly grouped updates | `.github/workflows/dependency-review.yml`, `.github/dependabot.yml` |
 | Secret prevention | Full-history Gitleaks scanning plus GitHub secret-scanning push protection | `.github/workflows/secret-scan.yml`, repository settings |
 | Supply-chain posture | OpenSSF Scorecard with SARIF upload, event-specific policy profiles, explicit score thresholds, fail-closed evaluation, and expiring waivers | `.github/workflows/scorecard.yml`, `.github/scorecard-policy.json` |
 | Release | Protected tag, version match, clean rebuild, audit, deterministic VSIX, SBOM, checksums, provenance and SBOM attestations | `.github/workflows/release.yml` |
-| Governance | CODEOWNERS, protected branch, required reviews, private vulnerability reporting, release environment, live settings drift audit | `.github/CODEOWNERS`, `.github/rulesets/main.json`, `.github/workflows/repository-policy.yml` |
+| Governance | CODEOWNERS, protected branch, required human reviews, cost-conscious automatic Copilot review, private vulnerability reporting, release environment, and live settings drift audit | `.github/CODEOWNERS`, `.github/copilot-instructions.md`, `.github/rulesets/main.json`, `.github/workflows/repository-policy.yml` |
 
 ## Workflow security baseline
 
@@ -48,6 +48,11 @@ A pull request is ready to merge only after these checks pass:
 10. Secret scanning.
 11. OpenSSF Scorecard policy evaluation using the pull-request profile.
 12. Live GitHub repository settings and branch-rules drift audit.
+13. Independent human approval and resolved review conversations.
+
+When the pull-request author has a plan that includes Copilot code review and available usage, the ruleset also requests one advisory Copilot review when the pull request becomes open. Draft reviews and automatic re-review on every push are disabled to conserve AI credits. A maintainer can request a manual re-review after significant updates.
+
+Copilot review comments are not a required status check and cannot satisfy the independent human approval. This keeps availability, quota, and billing state from becoming a merge dependency.
 
 The branch ruleset requires stable aggregate checks rather than brittle matrix labels. The `Required` context represents both Node.js quality jobs, package construction, and repository-owned SAST.
 
@@ -72,5 +77,7 @@ Automation cannot configure every GitHub security control with the default workf
 
 - There is no deployed server, so traditional DAST and container-image scanning are not applicable.
 - Automated Microsoft Graph integration tests are not run in pull requests because they would require a licensed tenant, delegated consent, and live user data. Manual tests must use an approved tenant and synthetic content.
+- Copilot code review depends on the author's Copilot entitlement and available AI credits. Public repository status alone does not provide code-review access.
+- Automated review cannot replace independent human approval or security ownership.
 - Visual Studio Marketplace publishing is intentionally excluded until a separate credential, signing, and publisher-governance design is reviewed.
 - Microsoft Graph's Copilot conversations API is beta; upstream behavioral changes can break the extension independently of this pipeline.
