@@ -11,6 +11,7 @@ const requiredFiles = [
   '.editorconfig',
   '.gitattributes',
   '.github/CODEOWNERS',
+  '.github/copilot-instructions.md',
   '.github/dependabot.yml',
   '.github/pull_request_template.md',
   '.github/repository-policy.json',
@@ -80,6 +81,10 @@ const advisoryUrl = 'https://github.com/PPadgett/m365-copilot-vscode/security/ad
 if (!containsExactHttpUrl(security, advisoryUrl)) fail(`SECURITY.md must link directly to ${advisoryUrl}.`);
 if (!/vulnerab|disclos/i.test(security)) fail('SECURITY.md must document vulnerability disclosure.');
 
+const copilotInstructions = await text('.github/copilot-instructions.md');
+if (!/security-sensitive/i.test(copilotInstructions)) fail('Copilot instructions must identify the repository as security-sensitive.');
+if (!/Copilot review is advisory/i.test(copilotInstructions)) fail('Copilot instructions must state that Copilot review is advisory.');
+
 const fuzzTest = await text('test/core.fuzz.test.js');
 if (!/require\(\s*['"]fast-check['"]\s*\)/.test(fuzzTest)) fail('Fuzz test must directly require fast-check for Scorecard detection.');
 if (!/fc\.(?:assert|property|asyncProperty)\b/.test(fuzzTest)) fail('Fuzz test must execute fast-check properties.');
@@ -127,11 +132,21 @@ function validateRepositoryPolicy(policy, desired) {
     if (policy.repository?.[key] !== value) fail(`repository-policy.json ${key} must be ${value}.`);
   }
   if (policy.privateVulnerabilityReporting !== true) fail('Private vulnerability reporting must be required.');
+
+  const copilotPolicy = policy.copilotCodeReview;
+  if (
+    copilotPolicy?.enabled !== true ||
+    typeof copilotPolicy.reviewDraftPullRequests !== 'boolean' ||
+    typeof copilotPolicy.reviewOnPush !== 'boolean'
+  ) {
+    fail('repository-policy.json must define enabled automatic Copilot code review settings.');
+  }
+
   if (desired.name !== policy.rulesetName || desired.target !== 'branch' || desired.enforcement !== 'active') fail('Ruleset name, target, and enforcement must match repository policy.');
   if (!Array.isArray(desired.bypass_actors) || desired.bypass_actors.length !== 0) fail('The main ruleset must have no bypass actors.');
   if (!desired.conditions?.ref_name?.include?.includes('~DEFAULT_BRANCH')) fail('The main ruleset must target the default branch.');
   const byType = new Map((desired.rules ?? []).map(rule => [rule.type, rule]));
-  for (const type of ['deletion', 'non_fast_forward', 'required_linear_history', 'pull_request', 'required_status_checks']) {
+  for (const type of ['deletion', 'non_fast_forward', 'required_linear_history', 'pull_request', 'copilot_code_review', 'required_status_checks']) {
     if (!byType.has(type)) fail(`The main ruleset is missing ${type}.`);
   }
   const pr = byType.get('pull_request')?.parameters;
@@ -140,6 +155,15 @@ function validateRepositoryPolicy(policy, desired) {
     if (pr?.[key] !== true) fail(`The main ruleset must enable ${key}.`);
   }
   if (JSON.stringify(pr?.allowed_merge_methods) !== JSON.stringify(['squash'])) fail('The main ruleset must allow only squash merging.');
+
+  const copilot = byType.get('copilot_code_review')?.parameters;
+  if (copilot?.review_draft_pull_requests !== copilotPolicy?.reviewDraftPullRequests) {
+    fail('Ruleset Copilot draft-review behavior must match repository-policy.json.');
+  }
+  if (copilot?.review_on_push !== copilotPolicy?.reviewOnPush) {
+    fail('Ruleset Copilot push-review behavior must match repository-policy.json.');
+  }
+
   const status = byType.get('required_status_checks')?.parameters;
   if (status?.strict_required_status_checks_policy !== true) fail('Required status checks must be strict.');
   const actual = (status?.required_status_checks ?? []).map(check => check.context);
