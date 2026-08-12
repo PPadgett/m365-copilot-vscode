@@ -35,6 +35,13 @@
       }
     },
     {
+      "type": "copilot_code_review",
+      "parameters": {
+        "review_draft_pull_requests": false,
+        "review_on_push": false
+      }
+    },
+    {
       "type": "required_status_checks",
       "parameters": {
         "do_not_enforce_on_create": true,
