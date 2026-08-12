@@ -1,0 +1,192 @@
+{
+  "name": "m365-copilot-graph-provider",
+  "displayName": "Microsoft 365 Copilot Graph Provider",
+  "description": "Use the Microsoft 365 Copilot Chat API as a custom language model in Visual Studio Code.",
+  "version": "0.1.0",
+  "publisher": "ppadgett",
+  "license": "MIT",
+  "preview": true,
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PPadgett/m365-copilot-vscode.git"
+  },
+  "homepage": "https://github.com/PPadgett/m365-copilot-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/PPadgett/m365-copilot-vscode/issues"
+  },
+  "engines": {
+    "node": ">=22",
+    "vscode": "^1.131.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "bitbucket",
+    "copilot",
+    "language-model",
+    "microsoft-365",
+    "microsoft-graph"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The extension can send chat and workspace context to Microsoft Graph, so it is disabled in untrusted workspaces."
+    },
+    "virtualWorkspaces": false
+  },
+  "activationEvents": [
+    "onLanguageModelChatProvider:m365-copilot-graph",
+    "onCommand:m365Copilot.signIn",
+    "onCommand:m365Copilot.setBearerToken",
+    "onCommand:m365Copilot.clearBearerToken",
+    "onCommand:m365Copilot.testConnection",
+    "onCommand:m365Copilot.openSettings"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "npm run clean && npm run compile",
+    "check": "node scripts/check-repo.mjs",
+    "clean": "node scripts/clean.mjs",
+    "compile": "tsc -p ./",
+    "package": "npm run build && node scripts/build-vsix.mjs",
+    "sbom": "node scripts/generate-sbom.mjs",
+    "test": "npm run build && node scripts/run-tests.mjs",
+    "verify": "npm run check && npm test",
+    "watch": "tsc --watch -p ./",
+    "validate:vsix": "node scripts/validate-vsix.mjs",
+    "reproducible": "node scripts/check-reproducible.mjs",
+    "checksums": "node scripts/generate-checksums.mjs",
+    "validate:sbom": "node scripts/validate-sbom.mjs"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.125.0",
+    "typescript": "5.9.3"
+  },
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "m365-copilot-graph",
+        "displayName": "Microsoft 365 Copilot (Graph)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "m365Copilot.signIn",
+        "title": "M365 Copilot: Sign in with Microsoft",
+        "category": "M365 Copilot"
+      },
+      {
+        "command": "m365Copilot.setBearerToken",
+        "title": "M365 Copilot: Set Graph Bearer Token",
+        "category": "M365 Copilot"
+      },
+      {
+        "command": "m365Copilot.clearBearerToken",
+        "title": "M365 Copilot: Clear Graph Bearer Token",
+        "category": "M365 Copilot"
+      },
+      {
+        "command": "m365Copilot.testConnection",
+        "title": "M365 Copilot: Test Connection",
+        "category": "M365 Copilot"
+      },
+      {
+        "command": "m365Copilot.openSettings",
+        "title": "M365 Copilot: Open Settings",
+        "category": "M365 Copilot"
+      }
+    ],
+    "configuration": {
+      "title": "Microsoft 365 Copilot Graph",
+      "properties": {
+        "m365Copilot.authMode": {
+          "type": "string",
+          "enum": [
+            "microsoft",
+            "bearer"
+          ],
+          "default": "microsoft",
+          "scope": "application",
+          "description": "Authentication method. Microsoft mode uses VS Code authentication; bearer mode uses a delegated Graph token in VS Code SecretStorage."
+        },
+        "m365Copilot.timeZone": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "IANA time zone sent as locationHint, for example America/Chicago. Empty uses the operating system time zone."
+        },
+        "m365Copilot.webGrounding": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Allow Microsoft 365 Copilot to use web grounding for requests."
+        },
+        "m365Copilot.enableToolCalling": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Experimental: translate strict model-emitted markup into VS Code tool calls. Disabled by default because the Graph API has no native VS Code tool protocol."
+        },
+        "m365Copilot.inlineCompletions": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Experimental: enable inline ghost-text completions through the Copilot Chat API. Disabled by default."
+        },
+        "m365Copilot.inlineMaxPrefixChars": {
+          "type": "number",
+          "default": 6000,
+          "minimum": 500,
+          "maximum": 20000,
+          "scope": "application",
+          "description": "Maximum characters before the cursor sent for inline completion context."
+        },
+        "m365Copilot.inlineMaxSuffixChars": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 0,
+          "maximum": 10000,
+          "scope": "application",
+          "description": "Maximum characters after the cursor sent for inline completion context."
+        },
+        "m365Copilot.inlineMaxCompletionChars": {
+          "type": "number",
+          "default": 4000,
+          "minimum": 100,
+          "maximum": 20000,
+          "scope": "application",
+          "description": "Maximum accepted inline completion length. Longer model responses are ignored."
+        },
+        "m365Copilot.maxPromptChars": {
+          "type": "number",
+          "default": 200000,
+          "minimum": 10000,
+          "maximum": 1000000,
+          "scope": "application",
+          "description": "Maximum prompt size sent to Microsoft Graph. Requests over this limit fail instead of silently sending more workspace context."
+        },
+        "m365Copilot.requestTimeoutSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 15,
+          "maximum": 300,
+          "scope": "application",
+          "description": "Timeout for each Microsoft Graph request."
+        }
+      }
+    }
+  },
+  "files": [
+    "dist/**/*.js",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ]
+}

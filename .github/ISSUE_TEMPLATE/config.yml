@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/PPadgett/m365-copilot-vscode/security/policy
+    about: Read the private reporting instructions. Do not disclose vulnerabilities publicly.
+  - name: Microsoft product support
+    url: https://support.microsoft.com/
+    about: Use Microsoft or your tenant administrator for licensing, Entra consent, and Graph service incidents.

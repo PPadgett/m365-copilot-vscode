@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, attest, and publish
+    if: github.repository == 'PPadgett/m365-copilot-vscode'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: release
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          check-latest: true
+
+      - name: Set reproducible build timestamp
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+
+      - name: Verify tag matches package version
+        run: node scripts/check-version.mjs "$GITHUB_REF_NAME"
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Run release quality gates
+        run: npm run verify
+
+      - name: Audit build dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build VSIX
+        run: npm run package
+
+      - name: Validate VSIX package semantics
+        run: npm run validate:vsix
+
+      - name: Verify reproducible packaging
+        run: npm run reproducible
+
+      - name: Validate VSIX ZIP structure
+        run: unzip -t artifacts/*.vsix
+
+      - name: Generate CycloneDX SBOM
+        run: npm run sbom
+
+      - name: Validate CycloneDX SBOM
+        run: npm run validate:sbom
+
+      - name: Generate SHA-256 checksums
+        run: npm run checksums
+
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: artifacts/*.vsix
+
+      - name: Attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: artifacts/*.vsix
+          sbom-path: artifacts/*.cdx.json
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" artifacts/*
+          --verify-tag
+          --generate-notes
+          --title "$GITHUB_REF_NAME"

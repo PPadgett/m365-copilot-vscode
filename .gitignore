@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build and release output
+dist/
+artifacts/
+*.vsix
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+*.code-workspace
+
+# Logs
+*.log
+npm-debug.log*

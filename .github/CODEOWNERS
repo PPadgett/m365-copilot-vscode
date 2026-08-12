@@ -1,0 +1,16 @@
+# Default review owner
+* @PPadgett
+
+# Security- and release-sensitive paths
+/.github/workflows/ @PPadgett
+/.github/dependabot.yml @PPadgett
+/SECURITY.md @PPadgett
+/docs/threat-model.md @PPadgett
+/scripts/build-vsix.mjs @PPadgett
+/scripts/check-reproducible.mjs @PPadgett
+/scripts/validate-vsix.mjs @PPadgett
+/scripts/validate-sbom.mjs @PPadgett
+/package-lock.json @PPadgett
+/src/core.ts @PPadgett
+/src/auth.ts @PPadgett
+/src/graphClient.ts @PPadgett

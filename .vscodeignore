@@ -1,0 +1,16 @@
+.github/**
+.vscode/**
+artifacts/**
+docs/**
+node_modules/**
+scripts/**
+src/**
+test/**
+.editorconfig
+.gitattributes
+.gitignore
+.npmrc
+.nvmrc
+package-lock.json
+tsconfig.json
+*.vsix

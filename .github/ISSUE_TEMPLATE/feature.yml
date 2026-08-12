@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a user-facing improvement or design change.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the user need, security impact, and alternatives. Large changes should remain design discussions until the approach is agreed.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What user problem should the project solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and privacy impact
+      description: Consider permissions, data sent to Graph, tool execution, secrets, and organizational policy.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: I understand this project depends on a beta Microsoft Graph API.
+          required: true
