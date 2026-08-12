@@ -16,7 +16,7 @@ const branch = process.env.GITHUB_DEFAULT_BRANCH ?? policy.defaultBranch;
 const headers = {
   Accept: 'application/vnd.github+json',
   'User-Agent': 'm365-copilot-vscode-repository-audit',
-  'X-GitHub-Api-Version': '2026-03-10'
+  'X-GitHub-Api-Version': process.env.GITHUB_API_VERSION ?? '2022-11-28'
 };
 if (process.env.GITHUB_TOKEN) {
   headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
@@ -31,8 +31,13 @@ const [metadata, rules, vulnerabilityReporting, rulesets] = await Promise.all([
 ]);
 
 const failures = [];
+const warnings = [];
 for (const [key, expected] of Object.entries(policy.repository)) {
-  if (metadata[key] !== expected) {
+  if (!(key in metadata) || metadata[key] === undefined) {
+    warnings.push(
+      `Repository setting ${key} is not visible to the current token; use a fine-grained token with Administration: read for full verification.`
+    );
+  } else if (metadata[key] !== expected) {
     failures.push(`Repository setting ${key} is ${JSON.stringify(metadata[key])}; expected ${JSON.stringify(expected)}.`);
   }
 }
@@ -56,12 +61,12 @@ if (!Array.isArray(rulesets)) {
   if (!summary?.id) {
     failures.push(`Repository ruleset ${JSON.stringify(policy.rulesetName)} is not configured.`);
   } else {
-    const detail = await requestJson(`${apiUrl}/repos/${encodedRepository}/rulesets/${sumary.id}`, headers);
+    const detail = await requestJson(`${apiUrl}/repos/${encodedRepository}/rulesets/${summary.id}`, headers);
     auditRuleset(detail, policy, failures);
   }
 }
 
-const summary = renderSummary(repository, branch, failures);
+const summary = renderSummary(repository, branch, failures, warnings);
 console.log(summary);
 if (process.env.GITHUB_STEP_SUMMARY) {
   await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
@@ -121,7 +126,7 @@ function auditRuleset(ruleset, policy, failures) {
     failures.push('Ruleset must not define bypass actors.');
   }
   const includes = ruleset.conditions?.ref_name?.include;
-  if (!Array.isArray(includes) || !includes.include('~DEFAULT_BRANCH')) {
+  if (!Array.isArray(includes) || !includes.includes('~DEFAULT_BRANCH')) {
     failures.push('Ruleset must target the default branch through ~DEFAULT_BRANCH.');
   }
 }
@@ -162,7 +167,7 @@ function validatePolicy(value) {
   }
 }
 
-function renderSummary(repository, branch, failures) {
+function renderSummary(repository, branch, failures, warnings) {
   const lines = [
     '## GitHub repository policy',
     '',
@@ -172,11 +177,17 @@ function renderSummary(repository, branch, failures) {
     ''
   ];
   if (failures.length === 0) {
-    lines.push('Repository settings and active branch rules match the committed policy.');
+    lines.push('Observable repository settings and active branch rules match the committed policy.');
   } else {
     lines.push(`Repository policy failed with ${failures.length} drift item(s):`);
     for (const failure of failures) {
       lines.push(`- ${failure}`);
+    }
+  }
+  if (warnings.length > 0) {
+    lines.push('', `Repository policy emitted ${warnings.length} visibility warning(s):`);
+    for (const warning of warnings) {
+      lines.push(`- ${warning}`);
     }
   }
   return lines.join('\n');
