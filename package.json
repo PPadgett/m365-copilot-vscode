@@ -65,6 +65,7 @@
     "checksums": "node scripts/generate-checksums.mjs",
     "validate:sbom": "node scripts/validate-sbom.mjs",
     "fuzz": "npm run build && node --test test/core.fuzz.test.js",
+    "sast:check": "node scripts/check-codeql-sarif.mjs",
     "scorecard:check": "node scripts/check-scorecard-sarif.mjs",
     "repository:audit": "node scripts/audit-github-rules.mjs",
     "ruleset:apply": "node scripts/apply-github-ruleset.mjs"
