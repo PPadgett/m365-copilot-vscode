@@ -4,6 +4,7 @@
 # Security- and release-sensitive paths
 /.github/workflows/ @PPadgett
 /.github/dependabot.yml @PPadgett
+/.github/copilot-instructions.md @PPadgett
 /.github/scorecard-policy.json @PPadgett
 /.github/repository-policy.json @PPadgett
 /.github/rulesets/ @PPadgett
