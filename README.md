@@ -1,7 +1,6 @@
 # Microsoft 365 Copilot Graph Provider for VS Code
 
 [![CI](https://github.com/PPadgett/m365-copilot-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/PPadgett/m365-copilot-vscode/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/PPadgett/m365-copilot-vscode/actions/workflows/codeql.yml/badge.svg)](https://github.com/PPadgett/m365-copilot-vscode/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/PPadgett/m365-copilot-vscode/badge)](https://scorecard.dev/viewer/?uri=github.com/PPadgett/m365-copilot-vscode)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 

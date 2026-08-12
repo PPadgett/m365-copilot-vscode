@@ -11,7 +11,7 @@ The pipeline is designed to make every change reviewable, every build repeatable
 | Source | Exact dependency versions, committed lockfile, no runtime npm dependencies, security-focused contribution rules | `package.json`, `package-lock.json`, `CONTRIBUTING.md` |
 | Local validation | Repository policy checks, strict TypeScript build, unit tests, coverage thresholds | `npm run verify` |
 | Pull request | Node.js 22 and 24 builds, package construction, semantic VSIX validation, reproducibility, dependency audit | `.github/workflows/ci.yml` |
-| Static analysis | JavaScript/TypeScript CodeQL with security and quality queries | `.github/workflows/codeql.yml` |
+| Static analysis | JavaScript/TypeScript CodeQL default setup with GitHub-managed query and tool updates | GitHub code-scanning settings |
 | Dependency governance | Vulnerability and license review for dependency changes; weekly grouped updates | `.github/workflows/dependency-review.yml`, `.github/dependabot.yml` |
 | Secret prevention | Full-history Gitleaks scanning plus GitHub secret-scanning push protection | `.github/workflows/secret-scan.yml`, repository settings |
 | Supply-chain posture | OpenSSF Scorecard with SARIF upload | `.github/workflows/scorecard.yml` |

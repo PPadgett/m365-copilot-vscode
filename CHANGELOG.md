@@ -22,7 +22,7 @@ All notable changes to this project are documented in this file. The project fol
 - Deterministic dependency-free VSIX builder with semantic package validation and reproducibility checks.
 - Unit tests with enforced coverage thresholds for security-sensitive parsing and validation helpers.
 - CycloneDX SBOM and SHA-256 checksum generation.
-- CI, CodeQL, dependency review, Gitleaks, OpenSSF Scorecard, and release attestation workflows.
+- CI, GitHub CodeQL default setup, dependency review, Gitleaks, OpenSSF Scorecard, and release attestation automation.
 - Open-source governance, security, support, and contribution documentation.
 
 [Unreleased]: https://github.com/PPadgett/m365-copilot-vscode/compare/v0.1.0...HEAD
