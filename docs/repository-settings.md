@@ -131,11 +131,15 @@ Human review is tracked in issue #3. CI and automated reviewers do not count as 
 
 ## Verify live settings
 
+For a complete audit, use a fine-grained token scoped only to this repository with **Administration: read**:
+
 ```bash
-GITHUB_TOKEN="<read token>" npm run repository:audit -- PPadgett/m365-copilot-vscode
+GITHUB_TOKEN="<fine-grained administration-read token>" npm run repository:audit -- PPadgett/m365-copilot-vscode
 ```
 
-The same audit runs automatically on pull requests, pushes to `main`, branch-protection changes, and a weekly schedule.
+Never commit or log the token. The automatic workflow uses the ordinary read-only `GITHUB_TOKEN`. That token can verify the default branch, private vulnerability reporting, effective branch rules, and repository ruleset, but GitHub may omit administrator-only merge-setting fields. Omitted fields are reported as visibility warnings rather than false drift failures; a real rule or ruleset mismatch still fails the job.
+
+The audit runs automatically on pull requests, pushes to `main`, branch-protection changes, and a weekly schedule.
 
 ## Release initialization
 
