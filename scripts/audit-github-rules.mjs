@@ -62,7 +62,7 @@ if (!Array.isArray(rulesets)) {
     failures.push(`Repository ruleset ${JSON.stringify(policy.rulesetName)} is not configured.`);
   } else {
     const detail = await requestJson(`${apiUrl}/repos/${encodedRepository}/rulesets/${summary.id}`, headers);
-    auditRuleset(detail, policy, failures);
+    auditRuleset(detail, policy, failures, warnings);
   }
 }
 
@@ -112,7 +112,7 @@ function auditRules(rules, requiredContexts, failures) {
   }
 }
 
-function auditRuleset(ruleset, policy, failures) {
+function auditRuleset(ruleset, policy, failures, warnings) {
   if (ruleset.name !== policy.rulesetName) {
     failures.push(`Ruleset name is ${JSON.stringify(ruleset.name)}; expected ${JSON.stringify(policy.rulesetName)}.`);
   }
@@ -122,7 +122,13 @@ function auditRuleset(ruleset, policy, failures) {
   if (ruleset.target !== 'branch') {
     failures.push(`Ruleset target is ${JSON.stringify(ruleset.target)}; expected "branch".`);
   }
-  if (!Array.isArray(ruleset.bypass_actors) || ruleset.bypass_actors.length !== 0) {
+  if (!Object.hasOwn(ruleset, 'bypass_actors') || ruleset.bypass_actors === undefined) {
+    warnings.push(
+      'Ruleset bypass actors are not visible to the current token; use a fine-grained token with Administration: read for full verification.'
+    );
+  } else if (!Array.isArray(ruleset.bypass_actors)) {
+    failures.push('GitHub returned an invalid ruleset bypass-actors value.');
+  } else if (ruleset.bypass_actors.length !== 0) {
     failures.push('Ruleset must not define bypass actors.');
   }
   const includes = ruleset.conditions?.ref_name?.include;
