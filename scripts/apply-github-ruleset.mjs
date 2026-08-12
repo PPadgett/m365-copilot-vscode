@@ -36,6 +36,7 @@ if (dryRun) {
     repository,
     repositorySettings: repositoryPolicy.repository,
     privateVulnerabilityReporting: repositoryPolicy.privateVulnerabilityReporting,
+    copilotCodeReview: repositoryPolicy.copilotCodeReview,
     ruleset
   }, null, 2));
   process.exit(0);
@@ -78,7 +79,7 @@ if (existing?.id) {
   console.log(`Created repository ruleset ${ruleset.name} (${created.id}).`);
 }
 
-console.log('Applied repository merge settings, private vulnerability reporting, and main-branch rules.');
+console.log('Applied repository merge settings, private vulnerability reporting, automatic Copilot review, and main-branch rules.');
 console.log(`Verify with: GITHUB_TOKEN=<read-token> npm run repository:audit -- ${repository}`);
 
 async function requestJson(url, options) {
@@ -110,6 +111,25 @@ function validateConfiguration(policy, desiredRuleset) {
   const contexts = statusRule?.parameters?.required_status_checks?.map(check => check.context) ?? [];
   if (contexts.length !== policy.requiredStatusChecks.length || policy.requiredStatusChecks.some(context => !contexts.includes(context))) {
     throw new TypeError('Ruleset required checks must exactly match repository-policy.json.');
+  }
+
+  const copilotPolicy = policy.copilotCodeReview;
+  if (
+    copilotPolicy?.enabled !== true ||
+    typeof copilotPolicy.reviewDraftPullRequests !== 'boolean' ||
+    typeof copilotPolicy.reviewOnPush !== 'boolean'
+  ) {
+    throw new TypeError('Repository policy must define enabled automatic Copilot code review settings.');
+  }
+  const copilotRule = desiredRuleset.rules?.find(rule => rule.type === 'copilot_code_review');
+  if (!copilotRule) {
+    throw new TypeError('Ruleset must enable automatic Copilot code review.');
+  }
+  if (
+    copilotRule.parameters?.review_draft_pull_requests !== copilotPolicy.reviewDraftPullRequests ||
+    copilotRule.parameters?.review_on_push !== copilotPolicy.reviewOnPush
+  ) {
+    throw new TypeError('Ruleset Copilot review settings must match repository-policy.json.');
   }
 }
 
