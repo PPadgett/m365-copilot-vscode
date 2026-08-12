@@ -51,7 +51,7 @@ if (vulnerabilityReporting.enabled !== policy.privateVulnerabilityReporting) {
 if (!Array.isArray(rules)) {
   failures.push('GitHub did not return an active branch-rules array.');
 } else {
-  auditRules(rules, policy.requiredStatusChecks, failures);
+  auditRules(rules, policy, failures);
 }
 
 if (!Array.isArray(rulesets)) {
@@ -75,9 +75,9 @@ if (failures.length > 0) {
   process.exitCode = 1;
 }
 
-function auditRules(rules, requiredContexts, failures) {
+function auditRules(rules, policy, failures) {
   const byType = new Map(rules.map(rule => [rule.type, rule]));
-  for (const type of ['deletion', 'non_fast_forward', 'pull_request', 'required_status_checks', 'required_linear_history']) {
+  for (const type of ['deletion', 'non_fast_forward', 'pull_request', 'copilot_code_review', 'required_status_checks', 'required_linear_history']) {
     if (!byType.has(type)) {
       failures.push(`Active main-branch rules are missing ${type}.`);
     }
@@ -96,6 +96,20 @@ function auditRules(rules, requiredContexts, failures) {
     }
   }
 
+  const copilot = byType.get('copilot_code_review')?.parameters;
+  if (copilot) {
+    if (copilot.review_draft_pull_requests !== policy.copilotCodeReview.reviewDraftPullRequests) {
+      failures.push(
+        `Copilot draft-review setting is ${Boolean(copilot.review_draft_pull_requests)}; expected ${policy.copilotCodeReview.reviewDraftPullRequests}.`
+      );
+    }
+    if (copilot.review_on_push !== policy.copilotCodeReview.reviewOnPush) {
+      failures.push(
+        `Copilot review-on-push setting is ${Boolean(copilot.review_on_push)}; expected ${policy.copilotCodeReview.reviewOnPush}.`
+      );
+    }
+  }
+
   const statusChecks = byType.get('required_status_checks')?.parameters;
   if (statusChecks) {
     requireTrue(statusChecks.strict_required_status_checks_policy, 'strict required status checks', failures);
@@ -104,7 +118,7 @@ function auditRules(rules, requiredContexts, failures) {
         ? statusChecks.required_status_checks.map(check => check?.context).filter(value => typeof value === 'string')
         : []
     );
-    for (const required of requiredContexts) {
+    for (const required of policy.requiredStatusChecks) {
       if (!contexts.has(required)) {
         failures.push(`Required status checks do not include ${required}.`);
       }
@@ -134,6 +148,24 @@ function auditRuleset(ruleset, policy, failures, warnings) {
   const includes = ruleset.conditions?.ref_name?.include;
   if (!Array.isArray(includes) || !includes.includes('~DEFAULT_BRANCH')) {
     failures.push('Ruleset must target the default branch through ~DEFAULT_BRANCH.');
+  }
+
+  if (!Array.isArray(ruleset.rules)) {
+    warnings.push(
+      'Ruleset rule details are not visible to the current token; the active branch-rules endpoint is used for Copilot review verification.'
+    );
+    return;
+  }
+  const copilot = ruleset.rules.find(rule => rule?.type === 'copilot_code_review')?.parameters;
+  if (!copilot) {
+    failures.push('Repository ruleset must enable automatic Copilot code review.');
+  } else {
+    if (copilot.review_draft_pull_requests !== policy.copilotCodeReview.reviewDraftPullRequests) {
+      failures.push('Repository ruleset Copilot draft-review behavior does not match policy.');
+    }
+    if (copilot.review_on_push !== policy.copilotCodeReview.reviewOnPush) {
+      failures.push('Repository ruleset Copilot push-review behavior does not match policy.');
+    }
   }
 }
 
@@ -170,6 +202,13 @@ function validatePolicy(value) {
   }
   if (!Array.isArray(value.requiredStatusChecks) || value.requiredStatusChecks.length === 0) {
     throw new TypeError('Repository policy must define requiredStatusChecks.');
+  }
+  if (
+    value.copilotCodeReview?.enabled !== true ||
+    typeof value.copilotCodeReview.reviewDraftPullRequests !== 'boolean' ||
+    typeof value.copilotCodeReview.reviewOnPush !== 'boolean'
+  ) {
+    throw new TypeError('Repository policy must define enabled automatic Copilot code review settings.');
   }
 }
 
