@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file. The project fol
 - Fail-closed OpenSSF Scorecard policy evaluation with documented, expiring waivers and event-specific pull-request and repository profiles.
 - Repository-owned CodeQL analysis that retains SARIF as build evidence and fails the stable `Required` gate on every unsuppressed finding.
 - Committed GitHub repository-policy and branch-ruleset specifications plus live drift auditing.
+- Cost-conscious automatic GitHub Copilot code review for newly opened pull requests, with repository-specific security review instructions.
 
 ### Security
 
@@ -18,6 +19,7 @@ All notable changes to this project are documented in this file. The project fol
 - Replaced substring URL validation with exact parsed URL matching and malicious-prefix/suffix regression tests.
 - Added a stable aggregate CI check for branch protection.
 - Added repository settings automation that disables merge commits and rebases, deletes merged branches, and requires strict reviewed pull requests.
+- Added drift detection for automatic Copilot code-review configuration; Copilot remains advisory and cannot satisfy required human approval.
 
 ### Planned
 
