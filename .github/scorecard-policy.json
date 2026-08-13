@@ -21,31 +21,37 @@
   "checks": {
     "BranchProtectionID": {
       "name": "Branch-Protection",
-      "minimumScore": 6
+      "minimumScore": 8,
+      "sarifMinimumScore": 10
     },
     "CodeReviewID": {
       "name": "Code-Review",
       "minimumScore": 6,
+      "sarifMinimumScore": 10,
       "waiver": {
         "expires": "2026-10-15",
-        "reason": "The repository is new and needs a second human maintainer plus reviewed change history. Tracked in https://github.com/PPadgett/m365-copilot-vscode/issues/3."
+        "reason": "The repository is new and needs enough reviewed change history for Scorecard to observe the enforced human-review process. Tracked in issue 3."
       }
     },
     "SecurityPolicyID": {
       "name": "Security-Policy",
-      "minimumScore": 7
+      "minimumScore": 7,
+      "sarifMinimumScore": 10
     },
     "FuzzingID": {
       "name": "Fuzzing",
-      "minimumScore": 10
+      "minimumScore": 10,
+      "sarifMinimumScore": 10
     },
     "SASTID": {
       "name": "SAST",
-      "minimumScore": 10
+      "minimumScore": 10,
+      "sarifMinimumScore": 10
     },
     "MaintainedID": {
       "name": "Maintained",
       "minimumScore": 10,
+      "sarifMinimumScore": 1,
       "waiver": {
         "expires": "2026-11-10",
         "reason": "OpenSSF Scorecard intentionally scores repositories created within the previous 90 days as zero. This repository reaches 90 days on 2026-11-09."
@@ -54,9 +60,10 @@
     "CIIBestPracticesID": {
       "name": "CII-Best-Practices",
       "minimumScore": 2,
+      "sarifMinimumScore": 5,
       "waiver": {
         "expires": "2026-09-30",
-        "reason": "OpenSSF Best Practices registration requires an interactive maintainer attestation. Tracked in https://github.com/PPadgett/m365-copilot-vscode/issues/4."
+        "reason": "OpenSSF Best Practices registration requires an interactive maintainer attestation. Tracked in issue 4."
       }
     }
   }
