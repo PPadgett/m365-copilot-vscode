@@ -1,160 +1,193 @@
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '..');
-const sarifArgument = process.argv[2] ?? 'results.sarif';
-const policyArgument = process.argv[3] ?? '.github/scorecard-policy.json';
-const reportArgument = process.argv[4] ?? 'scorecard-policy-report.json';
-const profileName = process.argv[5] ?? process.env.SCORECARD_POLICY_PROFILE ?? 'repository';
-const exactArgument = process.argv[6] ?? 'results.json';
-const sarifPath = resolve(root, sarifArgument);
-const policyPath = resolve(root, policyArgument);
-const reportPath = resolve(root, reportArgument);
-const exactPath = resolve(root, exactArgument);
-const evaluatedAt = parseEvaluationDate(process.env.SCORECARD_POLICY_DATE);
 
-const [sarif, policy, exactDocument] = await Promise.all([
-  readJson(sarifPath, 'Scorecard SARIF'),
-  readJson(policyPath, 'Scorecard policy'),
-  readJson(exactPath, 'Scorecard exact JSON')
-]);
-validatePolicy(policy);
-
-const selectedRuleIds = policy.profiles[profileName];
-if (!selectedRuleIds) {
-  throw new Error(`Unknown Scorecard policy profile ${JSON.stringify(profileName)}.`);
+if (isMainModule()) {
+  await main();
 }
 
-const scorecard = collectScorecardResults(sarif);
-const exactScorecard = collectExactScorecardResults(exactDocument);
-if (normalizeVersion(scorecard.version) !== normalizeVersion(exactScorecard.version)) {
-  throw new Error(
-    `Scorecard evidence version mismatch: SARIF ${JSON.stringify(scorecard.version)} versus exact JSON ${JSON.stringify(exactScorecard.version)}.`
-  );
+export async function main() {
+  const sarifArgument = process.argv[2] ?? 'results.sarif';
+  const policyArgument = process.argv[3] ?? '.github/scorecard-policy.json';
+  const reportArgument = process.argv[4] ?? 'scorecard-policy-report.json';
+  const profileName = process.argv[5] ?? process.env.SCORECARD_POLICY_PROFILE ?? 'repository';
+  const exactArgument = process.argv[6] ?? 'results.json';
+  const sarifPath = resolve(root, sarifArgument);
+  const policyPath = resolve(root, policyArgument);
+  const reportPath = resolve(root, reportArgument);
+  const exactPath = resolve(root, exactArgument);
+  const evaluatedAt = parseEvaluationDate(process.env.SCORECARD_POLICY_DATE);
+
+  const [sarif, policy, exactDocument] = await Promise.all([
+    readJson(sarifPath, 'Scorecard SARIF'),
+    readJson(policyPath, 'Scorecard policy'),
+    readJson(exactPath, 'Scorecard exact JSON')
+  ]);
+
+  const report = evaluateScorecardPolicy({
+    sarif,
+    exactDocument,
+    policy,
+    profileName,
+    evaluatedAt,
+    sarifFile: sarifArgument,
+    exactScorecardFile: exactArgument,
+    policyFile: policyArgument
+  });
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+  const summary = renderSummary(report);
+  console.log(summary);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+  }
+  if (!report.passed) {
+    process.exitCode = 1;
+  }
 }
 
-const entries = [];
-const failures = [];
-const allConfiguredRuleIds = new Set(Object.keys(policy.checks));
-
-for (const ruleId of selectedRuleIds) {
-  const configuration = policy.checks[ruleId];
-  const minimumScore = configuration.minimumScore ?? policy.defaultMinimumScore;
-  const sarifMinimumScore = configuration.sarifMinimumScore;
-  const exact = exactScorecard.results.get(ruleId);
-  const sarifResult = scorecard.results.get(ruleId);
-  const waiver = configuration.waiver ?? null;
-  const evidenceFailures = [];
-
-  if (!exact) {
-    evidenceFailures.push('The expected check was absent from the exact Scorecard JSON evidence.');
-  }
-  if (!scorecard.knownRuleIds.has(ruleId)) {
-    evidenceFailures.push('The expected check was absent from the Scorecard SARIF rule catalog.');
+export function evaluateScorecardPolicy({
+  sarif,
+  exactDocument,
+  policy,
+  profileName = 'repository',
+  evaluatedAt = new Date(),
+  sarifFile = 'results.sarif',
+  exactScorecardFile = 'results.json',
+  policyFile = '.github/scorecard-policy.json'
+}) {
+  validatePolicy(policy);
+  if (!(evaluatedAt instanceof Date) || Number.isNaN(evaluatedAt.getTime())) {
+    throw new TypeError('evaluatedAt must be a valid Date.');
   }
 
-  let sarifEvidence = 'unavailable';
-  if (exact && scorecard.knownRuleIds.has(ruleId)) {
-    sarifEvidence = validateSarifEvidence(ruleId, exact.score, sarifResult, sarifMinimumScore, evidenceFailures);
+  const selectedRuleIds = policy.profiles[profileName];
+  if (!selectedRuleIds) {
+    throw new Error(`Unknown Scorecard policy profile ${JSON.stringify(profileName)}.`);
   }
 
-  const entry = {
-    ruleId,
-    name: configuration.name,
-    score: exact?.score ?? null,
-    minimumScore,
-    sarifMinimumScore,
-    sarifEvidence,
-    status: 'pass',
-    message: exact?.reason ?? 'Exact Scorecard evidence was unavailable.',
-    waiver,
-    evidenceFailures
-  };
-
-  if (evidenceFailures.length > 0) {
-    entry.status = 'fail';
-    for (const failure of evidenceFailures) {
-      failures.push(`${configuration.name}: ${failure}`);
-    }
-  } else if (exact.score === -1) {
-    if (isActiveWaiver(waiver, evaluatedAt)) {
-      entry.status = 'waived';
-    } else {
-      entry.status = 'fail';
-      failures.push(`${configuration.name} was inconclusive; a numeric score is required.`);
-    }
-  } else if (exact.score < minimumScore) {
-    if (isActiveWaiver(waiver, evaluatedAt)) {
-      entry.status = 'waived';
-    } else {
-      entry.status = 'fail';
-      failures.push(`${configuration.name} scored ${exact.score}; required minimum is ${minimumScore}.`);
-    }
+  const scorecard = collectScorecardResults(sarif);
+  const exactScorecard = collectExactScorecardResults(exactDocument);
+  if (normalizeVersion(scorecard.version) !== normalizeVersion(exactScorecard.version)) {
+    throw new Error(
+      `Scorecard evidence version mismatch: SARIF ${JSON.stringify(scorecard.version)} versus exact JSON ${JSON.stringify(exactScorecard.version)}.`
+    );
   }
-  entries.push(entry);
-}
 
-if (policy.failOnUnconfiguredResults) {
-  for (const [ruleId, result] of scorecard.results) {
-    if (allConfiguredRuleIds.has(ruleId)) {
-      continue;
-    }
+  const entries = [];
+  const failures = [];
+  const allConfiguredRuleIds = new Set(Object.keys(policy.checks));
+
+  for (const ruleId of selectedRuleIds) {
+    const configuration = policy.checks[ruleId];
+    const minimumScore = configuration.minimumScore ?? policy.defaultMinimumScore;
+    const sarifMinimumScore = configuration.sarifMinimumScore;
     const exact = exactScorecard.results.get(ruleId);
+    const sarifResult = scorecard.results.get(ruleId);
+    const waiver = configuration.waiver ?? null;
     const evidenceFailures = [];
+
     if (!exact) {
-      evidenceFailures.push('The SARIF result had no matching exact JSON check.');
-    } else if (exact.score !== result.score) {
-      evidenceFailures.push(`SARIF score ${result.score} disagrees with exact JSON score ${exact.score}.`);
+      evidenceFailures.push('The expected check was absent from the exact Scorecard JSON evidence.');
     }
-    const score = exact?.score ?? result.score;
-    const minimumScore = policy.defaultMinimumScore;
-    const status = evidenceFailures.length === 0 && score >= minimumScore ? 'pass' : 'fail';
-    entries.push({
+    if (!scorecard.knownRuleIds.has(ruleId)) {
+      evidenceFailures.push('The expected check was absent from the Scorecard SARIF rule catalog.');
+    }
+
+    let sarifEvidence = 'unavailable';
+    if (exact && scorecard.knownRuleIds.has(ruleId)) {
+      sarifEvidence = validateSarifEvidence(ruleId, exact.score, sarifResult, sarifMinimumScore, evidenceFailures);
+    }
+
+    const entry = {
       ruleId,
-      name: exact?.name ?? ruleId,
-      score,
+      name: configuration.name,
+      score: exact?.score ?? null,
       minimumScore,
-      sarifMinimumScore: null,
-      sarifEvidence: 'explicit-unconfigured',
-      status,
-      message: exact?.reason ?? result.messages.join('\n'),
-      waiver: null,
+      sarifMinimumScore,
+      sarifEvidence,
+      status: 'pass',
+      message: exact?.reason ?? 'Exact Scorecard evidence was unavailable.',
+      waiver,
       evidenceFailures
-    });
+    };
+
     if (evidenceFailures.length > 0) {
+      entry.status = 'fail';
       for (const failure of evidenceFailures) {
-        failures.push(`Unconfigured Scorecard result ${ruleId}: ${failure}`);
+        failures.push(`${configuration.name}: ${failure}`);
       }
-    } else if (status === 'fail') {
-      failures.push(`Unconfigured Scorecard result ${ruleId} scored ${score}; required minimum is ${minimumScore}.`);
+    } else if (exact.score === -1) {
+      if (isActiveWaiver(waiver, evaluatedAt)) {
+        entry.status = 'waived';
+      } else {
+        entry.status = 'fail';
+        failures.push(`${configuration.name} was inconclusive; a numeric score is required.`);
+      }
+    } else if (exact.score < minimumScore) {
+      if (isActiveWaiver(waiver, evaluatedAt)) {
+        entry.status = 'waived';
+      } else {
+        entry.status = 'fail';
+        failures.push(`${configuration.name} scored ${exact.score}; required minimum is ${minimumScore}.`);
+      }
+    }
+    entries.push(entry);
+  }
+
+  if (policy.failOnUnconfiguredResults) {
+    for (const [ruleId, result] of scorecard.results) {
+      if (allConfiguredRuleIds.has(ruleId)) {
+        continue;
+      }
+      const exact = exactScorecard.results.get(ruleId);
+      const evidenceFailures = [];
+      if (!exact) {
+        evidenceFailures.push('The SARIF result had no matching exact JSON check.');
+      } else if (exact.score !== result.score) {
+        evidenceFailures.push(`SARIF score ${result.score} disagrees with exact JSON score ${exact.score}.`);
+      }
+      const score = exact?.score ?? result.score;
+      const minimumScore = policy.defaultMinimumScore;
+      const status = evidenceFailures.length === 0 && score >= minimumScore ? 'pass' : 'fail';
+      entries.push({
+        ruleId,
+        name: exact?.name ?? ruleId,
+        score,
+        minimumScore,
+        sarifMinimumScore: null,
+        sarifEvidence: 'explicit-unconfigured',
+        status,
+        message: exact?.reason ?? result.messages.join('\n'),
+        waiver: null,
+        evidenceFailures
+      });
+      if (evidenceFailures.length > 0) {
+        for (const failure of evidenceFailures) {
+          failures.push(`Unconfigured Scorecard result ${ruleId}: ${failure}`);
+        }
+      } else if (status === 'fail') {
+        failures.push(`Unconfigured Scorecard result ${ruleId} scored ${score}; required minimum is ${minimumScore}.`);
+      }
     }
   }
-}
 
-entries.sort((left, right) => left.name.localeCompare(right.name));
-const report = {
-  schemaVersion: 3,
-  evaluatedAt: evaluatedAt.toISOString(),
-  profile: profileName,
-  sarifFile: sarifArgument,
-  exactScorecardFile: exactArgument,
-  policyFile: policyArgument,
-  scorecardRuns: scorecard.runCount,
-  scorecardVersion: exactScorecard.version,
-  passed: failures.length === 0,
-  failures,
-  checks: entries
-};
-await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-
-const summary = renderSummary(report);
-console.log(summary);
-if (process.env.GITHUB_STEP_SUMMARY) {
-  await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
-}
-
-if (failures.length > 0) {
-  process.exitCode = 1;
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  return {
+    schemaVersion: 3,
+    evaluatedAt: evaluatedAt.toISOString(),
+    profile: profileName,
+    sarifFile,
+    exactScorecardFile,
+    policyFile,
+    scorecardRuns: scorecard.runCount,
+    scorecardVersion: exactScorecard.version,
+    passed: failures.length === 0,
+    failures,
+    checks: entries
+  };
 }
 
 function collectScorecardResults(document) {
@@ -408,4 +441,8 @@ function normalizeVersion(value) {
 
 function escapeTable(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
+}
+
+function isMainModule() {
+  return Boolean(process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href);
 }
