@@ -24,7 +24,7 @@ jobs:
     name: Scorecard Analysis
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       checks: read
       contents: read
@@ -38,18 +38,27 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run OpenSSF Scorecard
+      - name: Run OpenSSF Scorecard for code-scanning alerts
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: ${{ github.event_name != 'pull_request' }}
 
-      - name: Upload Scorecard artifact
+      - name: Run OpenSSF Scorecard for exact score evidence
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.json
+          results_format: json
+          publish_results: false
+
+      - name: Upload Scorecard evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: OpenSSF-Scorecard-${{ github.run_id }}
-          path: results.sarif
+          path: |
+            results.sarif
+            results.json
           if-no-files-found: error
           retention-days: 5
 
@@ -78,7 +87,7 @@ jobs:
       - name: Validate local Scorecard controls
         run: node scripts/check-repo.mjs
 
-      - name: Download Scorecard artifact
+      - name: Download Scorecard evidence
         if: needs.analysis.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -90,7 +99,13 @@ jobs:
         continue-on-error: true
         env:
           SCORECARD_POLICY_PROFILE: ${{ github.event_name == 'pull_request' && 'pull-request' || 'repository' }}
-        run: node scripts/check-scorecard-sarif.mjs results.sarif
+        run: >-
+          node scripts/check-scorecard-sarif.mjs
+          results.sarif
+          .github/scorecard-policy.json
+          scorecard-policy-report.json
+          "$SCORECARD_POLICY_PROFILE"
+          results.json
 
       - name: Upload Scorecard policy report
         if: always() && needs.analysis.result == 'success'
