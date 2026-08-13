@@ -1,16 +1,16 @@
-# Default review owner
-* @PPadgett
+# Default review owners
+* @PPadgett @randykwheeler
 
 # Security- and release-sensitive paths
-/.github/workflows/ @PPadgett
-/.github/dependabot.yml @PPadgett
-/SECURITY.md @PPadgett
-/docs/threat-model.md @PPadgett
-/scripts/build-vsix.mjs @PPadgett
-/scripts/check-reproducible.mjs @PPadgett
-/scripts/validate-vsix.mjs @PPadgett
-/scripts/validate-sbom.mjs @PPadgett
-/package-lock.json @PPadgett
-/src/core.ts @PPadgett
-/src/auth.ts @PPadgett
-/src/graphClient.ts @PPadgett
+/.github/workflows/ @PPadgett @randykwheeler
+/.github/dependabot.yml @PPadgett @randykwheeler
+/SECURITY.md @PPadgett @randykwheeler
+/docs/threat-model.md @PPadgett @randykwheeler
+/scripts/build-vsix.mjs @PPadgett @randykwheeler
+/scripts/check-reproducible.mjs @PPadgett @randykwheeler
+/scripts/validate-vsix.mjs @PPadgett @randykwheeler
+/scripts/validate-sbom.mjs @PPadgett @randykwheeler
+/package-lock.json @PPadgett @randykwheeler
+/src/core.ts @PPadgett @randykwheeler
+/src/auth.ts @PPadgett @randykwheeler
+/src/graphClient.ts @PPadgett @randykwheeler
