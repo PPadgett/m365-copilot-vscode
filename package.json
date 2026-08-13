@@ -53,20 +53,34 @@
   "scripts": {
     "build": "npm run clean && npm run compile",
     "check": "node scripts/check-repo.mjs",
+    "lint": "node scripts/lint-source.mjs",
+    "quality:policy": "node scripts/check-quality-policy.mjs",
     "clean": "node scripts/clean.mjs",
     "compile": "tsc -p ./",
     "package": "npm run build && node scripts/build-vsix.mjs",
     "sbom": "node scripts/generate-sbom.mjs",
     "test": "npm run build && node scripts/run-tests.mjs",
-    "verify": "npm run check && npm test",
+    "test:unit": "npm run build && node scripts/run-tests.mjs unit",
+    "test:integration": "npm run build && node scripts/run-tests.mjs integration",
+    "quality:report": "node scripts/summarize-quality.mjs",
+    "verify": "npm run check && npm run lint && npm run quality:policy && npm test",
     "watch": "tsc --watch -p ./",
     "validate:vsix": "node scripts/validate-vsix.mjs",
     "reproducible": "node scripts/check-reproducible.mjs",
+    "performance": "node scripts/check-performance.mjs",
+    "smoke:vsix": "node scripts/smoke-vsix.mjs",
     "checksums": "node scripts/generate-checksums.mjs",
-    "validate:sbom": "node scripts/validate-sbom.mjs"
+    "validate:sbom": "node scripts/validate-sbom.mjs",
+    "fuzz": "npm run build && node --test test/core.fuzz.test.js",
+    "test:mutation": "npm run build && node scripts/mutation-test.mjs",
+    "sast:check": "node scripts/check-codeql-sarif.mjs",
+    "scorecard:check": "node scripts/check-scorecard-sarif.mjs",
+    "repository:audit": "node scripts/audit-github-rules.mjs",
+    "ruleset:apply": "node scripts/apply-github-ruleset.mjs"
   },
   "devDependencies": {
     "@types/vscode": "1.125.0",
+    "fast-check": "4.9.0",
     "typescript": "7.0.2"
   },
   "contributes": {

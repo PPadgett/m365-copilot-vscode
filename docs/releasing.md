@@ -2,7 +2,7 @@
 
 ## Release policy
 
-Releases are created from protected `main` by pushing a version tag. The release workflow builds from source, runs all checks, creates a deterministic VSIX, generates a CycloneDX SBOM and checksums, creates GitHub provenance and SBOM attestations, and publishes a GitHub release.
+Releases are created from protected `main` by pushing a version tag. The release workflow builds from source, runs all quality and security checks, creates a deterministic VSIX, enforces performance and size budgets, runs a packaged-extension smoke test, generates a CycloneDX SBOM and checksums, creates GitHub provenance and SBOM attestations, and publishes a GitHub release.
 
 No Visual Studio Marketplace credential is used in the initial release design.
 
@@ -15,17 +15,22 @@ No Visual Studio Marketplace credential is used in the initial release design.
 ```bash
 npm ci --ignore-scripts
 npm run verify
+FUZZ_RUNS=5000 npm run fuzz
 npm run package
 npm run validate:vsix
 npm run reproducible
+npm run performance
+npm run smoke:vsix
 npm run sbom
 npm run validate:sbom
 npm run checksums
 unzip -t artifacts/*.vsix
 ```
 
-4. Open and merge a release pull request through the protected branch.
-5. From the resulting `main` commit, create a signed tag matching the package version:
+4. Review JUnit, LCOV, performance, mutation, SAST, Scorecard, compatibility, and packaged-smoke evidence from the release pull request.
+5. Complete manual Extension Development Host and approved-tenant Graph testing when runtime behavior changed.
+6. Open and merge a release pull request through the protected branch.
+7. From the resulting `main` commit, create a signed tag matching the package version:
 
 ```bash
 git switch main
@@ -43,7 +48,9 @@ The workflow fails when the tag and `package.json` version do not match.
 - Grants write permissions only to the release job.
 - Pins every action to a full commit SHA.
 - Rebuilds from a clean checkout with npm lifecycle scripts disabled.
+- Runs the same repository, lint, QA policy, test, and coverage gates used on pull requests.
 - Semantically validates the VSIX and proves a second build has the same SHA-256 digest.
+- Enforces size/performance budgets and validates a temporary installation layout before publication.
 - Attests the VSIX with GitHub OIDC and Sigstore-backed artifact attestations.
 - Attaches the CycloneDX SBOM to the VSIX as an SBOM attestation.
 
@@ -90,7 +97,7 @@ unzip -t m365-copilot-graph-provider-0.1.0.vsix
 unzip -l m365-copilot-graph-provider-0.1.0.vsix
 ```
 
-Expected runtime content is limited to the extension manifest, package metadata, compiled JavaScript, README, changelog, and license.
+Expected runtime content is limited to the extension manifest, package metadata, compiled JavaScript, README, changelog, and license. Review the published performance and smoke reports and confirm they reference the same VSIX SHA-256 value as `SHA256SUMS`.
 
 ## Emergency response
 

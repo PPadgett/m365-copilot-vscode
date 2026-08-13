@@ -1,16 +1,26 @@
-# Default review owner
-* @PPadgett
+# Default review owners
+* @PPadgett @randykwheeler
 
 # Security- and release-sensitive paths
-/.github/workflows/ @PPadgett
-/.github/dependabot.yml @PPadgett
-/SECURITY.md @PPadgett
-/docs/threat-model.md @PPadgett
-/scripts/build-vsix.mjs @PPadgett
-/scripts/check-reproducible.mjs @PPadgett
-/scripts/validate-vsix.mjs @PPadgett
-/scripts/validate-sbom.mjs @PPadgett
-/package-lock.json @PPadgett
-/src/core.ts @PPadgett
-/src/auth.ts @PPadgett
-/src/graphClient.ts @PPadgett
+/.github/workflows/ @PPadgett @randykwheeler
+/.github/dependabot.yml @PPadgett @randykwheeler
+/.github/copilot-instructions.md @PPadgett @randykwheeler
+/.github/scorecard-policy.json @PPadgett @randykwheeler
+/.github/repository-policy.json @PPadgett @randykwheeler
+/.github/rulesets/ @PPadgett @randykwheeler
+/SECURITY.md @PPadgett @randykwheeler
+/docs/threat-model.md @PPadgett @randykwheeler
+/docs/scorecard-remediation.md @PPadgett @randykwheeler
+/scripts/apply-github-ruleset.mjs @PPadgett @randykwheeler
+/scripts/audit-github-rules.mjs @PPadgett @randykwheeler
+/scripts/build-vsix.mjs @PPadgett @randykwheeler
+/scripts/check-repo.mjs @PPadgett @randykwheeler
+/scripts/check-reproducible.mjs @PPadgett @randykwheeler
+/scripts/check-scorecard-sarif.mjs @PPadgett @randykwheeler
+/scripts/validate-vsix.mjs @PPadgett @randykwheeler
+/scripts/validate-sbom.mjs @PPadgett @randykwheeler
+/package-lock.json @PPadgett @randykwheeler
+/src/core.ts @PPadgett @randykwheeler
+/src/auth.ts @PPadgett @randykwheeler
+/src/graphClient.ts @PPadgett @randykwheeler
+/test/core.fuzz.test.js @PPadgett @randykwheeler

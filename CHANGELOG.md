@@ -4,10 +4,34 @@ All notable changes to this project are documented in this file. The project fol
 
 ## [Unreleased]
 
+### Added
+
+- Property-based fuzz tests for token, tool-call, response-boundary, time-zone, completion, and Graph-error parsing.
+- Pull-request and scheduled fuzz workflow with a stable required check.
+- Fail-closed OpenSSF Scorecard policy evaluation with documented, expiring waivers and event-specific pull-request and repository profiles.
+- Repository-owned CodeQL analysis that retains SARIF as build evidence and fails the stable `Required` gate on every unsuppressed finding.
+- Committed GitHub repository-policy and branch-ruleset specifications plus live drift auditing.
+- Cost-conscious automatic GitHub Copilot code review for newly opened pull requests, with repository-specific security review instructions.
+- Advanced QA pipeline with independent source/workflow lint, JUnit and LCOV evidence, mocked Microsoft Graph integration and API contract tests, and a stable required gate.
+- Cross-platform VSIX installation-layout smoke testing on Ubuntu, Windows, and macOS using the same immutable build artifact.
+- Deterministic performance and artifact-size budgets with machine-readable reports.
+- Scheduled curated mutation testing for security-sensitive boundaries.
+- Risk-based QA strategy documenting automated, manual, conditional, and non-applicable test categories.
+
+### Security
+
+- Added a direct private-vulnerability-reporting link to the security policy.
+- Replaced substring URL validation with exact parsed URL matching and malicious-prefix/suffix regression tests.
+- Added a stable aggregate CI check for branch protection.
+- Added repository settings automation that disables merge commits and rebases, deletes merged branches, and requires strict reviewed pull requests.
+- Added drift detection for automatic Copilot code-review configuration; Copilot remains advisory and cannot satisfy required human approval.
+- Isolated Graph URL, request-contract, and bounded HTTP parsing logic for independent contract and integration testing.
+- Added token header-injection and size limits, redirect rejection tests, exact expiry-boundary tests, and path/query/fragment restrictions for Graph requests.
+
 ### Planned
 
 - Evaluate Microsoft Graph streaming through `chatOverStream`.
-- Add VS Code integration tests when the provider API can be exercised reliably in an Extension Development Host.
+- Add VS Code Extension Development Host integration tests when the provider API can be exercised reliably without tenant credentials.
 - Evaluate an optional backend for newer Microsoft Work IQ APIs without changing the default licensed Graph route.
 
 ## [0.1.0] - 2026-08-11

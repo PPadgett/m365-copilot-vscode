@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "defaultBranch": "main",
+  "rulesetName": "Protect main",
+  "repository": {
+    "allow_squash_merge": true,
+    "allow_merge_commit": false,
+    "allow_rebase_merge": false,
+    "delete_branch_on_merge": true,
+    "allow_update_branch": true
+  },
+  "privateVulnerabilityReporting": true,
+  "copilotCodeReview": {
+    "enabled": true,
+    "reviewDraftPullRequests": false,
+    "reviewOnPush": false
+  },
+  "requiredStatusChecks": [
+    "Required",
+    "Fuzz",
+    "Repository Policy",
+    "Scorecard Policy",
+    "CodeQL",
+    "Gitleaks",
+    "Review dependency changes"
+  ]
+}
