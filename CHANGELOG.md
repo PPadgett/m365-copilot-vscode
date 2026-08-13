@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file. The project fol
 - Deterministic performance and artifact-size budgets with machine-readable reports.
 - Scheduled curated mutation testing for security-sensitive boundaries.
 - Risk-based QA strategy documenting automated, manual, conditional, and non-applicable test categories.
+- Exact OpenSSF Scorecard JSON evidence alongside SARIF code-scanning results.
 
 ### Security
 
@@ -27,6 +28,8 @@ All notable changes to this project are documented in this file. The project fol
 - Added drift detection for automatic Copilot code-review configuration; Copilot remains advisory and cannot satisfy required human approval.
 - Isolated Graph URL, request-contract, and bounded HTTP parsing logic for independent contract and integration testing.
 - Added token header-injection and size limits, redirect rejection tests, exact expiry-boundary tests, and path/query/fragment restrictions for Graph requests.
+- Changed live branch-rule auditing to fail when required rule parameters are hidden, absent, malformed, duplicated, or inconsistent with the committed policy.
+- Removed the implicit perfect score for Scorecard catalog rules with no SARIF result; the gate now uses exact JSON scores and rejects inconsistent evidence.
 
 ### Planned
 
