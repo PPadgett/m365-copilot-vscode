@@ -1,5 +1,6 @@
 const DEFAULT_API_URL = 'https://api.github.com';
 const DEFAULT_API_VERSION = '2022-11-28';
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_CHARS = 5 * 1024 * 1024;
 
 export async function runRepositoryAudit({
@@ -9,6 +10,7 @@ export async function runRepositoryAudit({
   apiUrl = process.env.GITHUB_API_URL ?? DEFAULT_API_URL,
   token = process.env.GITHUB_TOKEN,
   apiVersion = process.env.GITHUB_API_VERSION ?? DEFAULT_API_VERSION,
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
   fetchImpl = globalThis.fetch
 }) {
   validateRepository(repository);
@@ -17,7 +19,13 @@ export async function runRepositoryAudit({
     throw new TypeError('A Fetch-compatible implementation is required.');
   }
 
-  const client = createGitHubApiClient({ apiUrl, token, apiVersion, fetchImpl });
+  const client = createGitHubApiClient({
+    apiUrl,
+    token,
+    apiVersion,
+    requestTimeoutMs,
+    fetchImpl
+  });
   const encodedRepository = repository.split('/').map(encodeURIComponent).join('/');
   const [metadata, rules, vulnerabilityReporting, rulesets] = await Promise.all([
     client.requestJson(`repos/${encodedRepository}`),
@@ -158,9 +166,11 @@ export function createGitHubApiClient({
   apiUrl = DEFAULT_API_URL,
   token,
   apiVersion = DEFAULT_API_VERSION,
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
   fetchImpl = globalThis.fetch
 } = {}) {
   const baseUrl = normalizeApiUrl(apiUrl);
+  const timeoutMs = normalizeRequestTimeout(requestTimeoutMs);
   const headers = {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'm365-copilot-vscode-repository-audit',
@@ -172,18 +182,44 @@ export function createGitHubApiClient({
     async requestJson(endpoint) {
       const normalizedEndpoint = String(endpoint).replace(/^\/+/, '');
       const url = `${baseUrl}/${normalizedEndpoint}`;
-      const response = await fetchImpl(url, { headers, redirect: 'error' });
-      const text = await readBoundedText(response, url);
-      if (!response.ok) {
-        throw new Error(`GitHub API ${response.status} for ${url}: ${sanitize(text)}`);
-      }
-      if (!text) {
-        return {};
-      }
+      const controller = new AbortController();
+      const timeoutError = new Error(`GitHub API request timed out after ${timeoutMs} ms for ${url}.`);
+      let timeoutHandle;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          controller.abort(timeoutError);
+          reject(timeoutError);
+        }, timeoutMs);
+      });
+      const requestPromise = (async () => {
+        const response = await fetchImpl(url, {
+          headers,
+          redirect: 'error',
+          signal: controller.signal
+        });
+        const text = await readBoundedText(response, url);
+        if (!response.ok) {
+          throw new Error(`GitHub API ${response.status} for ${url}: ${sanitize(text)}`);
+        }
+        if (!text) {
+          return {};
+        }
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error(`GitHub API returned invalid JSON for ${url}.`);
+        }
+      })();
+
       try {
-        return JSON.parse(text);
-      } catch {
-        throw new Error(`GitHub API returned invalid JSON for ${url}.`);
+        return await Promise.race([requestPromise, timeoutPromise]);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          throw timeoutError;
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeoutHandle);
       }
     }
   };
@@ -433,6 +469,13 @@ function normalizeApiUrl(value) {
     throw new TypeError('GITHUB_API_URL must not include credentials, a query, or a fragment.');
   }
   return url.href.replace(/\/$/, '');
+}
+
+function normalizeRequestTimeout(value) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new TypeError('GitHub API request timeout must be a positive safe integer in milliseconds.');
+  }
+  return value;
 }
 
 async function readBoundedText(response, url) {
