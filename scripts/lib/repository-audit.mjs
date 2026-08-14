@@ -5,7 +5,7 @@ const MAX_RESPONSE_CHARS = 5 * 1024 * 1024;
 export async function runRepositoryAudit({
   repository,
   policy,
-  branch = policy.defaultBranch,
+  branch = policy?.defaultBranch,
   apiUrl = process.env.GITHUB_API_URL ?? DEFAULT_API_URL,
   token = process.env.GITHUB_TOKEN,
   apiVersion = process.env.GITHUB_API_VERSION ?? DEFAULT_API_VERSION,

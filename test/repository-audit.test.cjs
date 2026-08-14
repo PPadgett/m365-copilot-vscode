@@ -8,6 +8,23 @@ const root = resolve(__dirname, '..');
 const policy = JSON.parse(readFileSync(join(root, '.github/repository-policy.json'), 'utf8'));
 const modulePromise = import(pathToFileURL(join(root, 'scripts/lib/repository-audit.mjs')).href);
 
+test('missing policy fails through validatePolicy before branch resolution or network access', async () => {
+  const { runRepositoryAudit } = await modulePromise;
+  let requested = false;
+  await assert.rejects(
+    runRepositoryAudit({
+      repository: 'PPadgett/m365-copilot-vscode',
+      policy: undefined,
+      fetchImpl: async () => {
+        requested = true;
+        throw new Error('network access must not occur');
+      }
+    }),
+    /Repository policy must use version 1 and define defaultBranch/
+  );
+  assert.equal(requested, false);
+});
+
 test('multiple applicable pull-request rules are aggregated instead of rejected as duplicates', async () => {
   const failures = await evaluate([
     ...baseRules().filter(rule => rule.type !== 'pull_request'),
