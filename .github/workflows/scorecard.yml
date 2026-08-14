@@ -24,7 +24,7 @@ jobs:
     name: Scorecard Analysis
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 20
     permissions:
       checks: read
       contents: read
@@ -38,31 +38,24 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run OpenSSF Scorecard for code-scanning alerts
+      - name: Run OpenSSF Scorecard once
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
-          results_file: results.sarif
-          results_format: sarif
+          results_file: ${{ github.event_name == 'pull_request' && 'results.json' || 'results.sarif' }}
+          results_format: ${{ github.event_name == 'pull_request' && 'json' || 'sarif' }}
           publish_results: ${{ github.event_name != 'pull_request' }}
-
-      - name: Run OpenSSF Scorecard for exact score evidence
-        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
-        with:
-          results_file: results.json
-          results_format: json
-          publish_results: false
 
       - name: Upload Scorecard evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: OpenSSF-Scorecard-${{ github.run_id }}
           path: |
-            results.sarif
             results.json
+            results.sarif
           if-no-files-found: error
           retention-days: 5
 
-      - name: Upload Scorecard results to code scanning
+      - name: Upload advisory Scorecard SARIF to code scanning
         if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
         with:
@@ -93,19 +86,18 @@ jobs:
         with:
           name: OpenSSF-Scorecard-${{ github.run_id }}
 
-      - name: Evaluate Scorecard results against policy
+      - name: Evaluate exact Scorecard results against policy
         id: scorecard-policy
         if: needs.analysis.result == 'success'
         continue-on-error: true
         env:
           SCORECARD_POLICY_PROFILE: ${{ github.event_name == 'pull_request' && 'pull-request' || 'repository' }}
         run: >-
-          node scripts/check-scorecard-sarif.mjs
-          results.sarif
+          node scripts/check-scorecard-results.mjs
+          results.json
           .github/scorecard-policy.json
           scorecard-policy-report.json
           "$SCORECARD_POLICY_PROFILE"
-          results.json
 
       - name: Upload Scorecard policy report
         if: always() && needs.analysis.result == 'success'
