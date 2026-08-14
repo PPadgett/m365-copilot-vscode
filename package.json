@@ -74,7 +74,7 @@
     "fuzz": "npm run build && node --test test/core.fuzz.test.js",
     "test:mutation": "npm run build && node scripts/mutation-test.mjs",
     "sast:check": "node scripts/check-codeql-sarif.mjs",
-    "scorecard:check": "node scripts/check-scorecard-sarif.mjs",
+    "scorecard:check": "node scripts/check-scorecard-results.mjs",
     "repository:audit": "node scripts/audit-github-rules.mjs",
     "ruleset:apply": "node scripts/apply-github-ruleset.mjs"
   },

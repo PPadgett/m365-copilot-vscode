@@ -13,10 +13,12 @@
 /docs/scorecard-remediation.md @PPadgett @randykwheeler
 /scripts/apply-github-ruleset.mjs @PPadgett @randykwheeler
 /scripts/audit-github-rules.mjs @PPadgett @randykwheeler
+/scripts/lib/repository-audit.mjs @PPadgett @randykwheeler
+/scripts/lib/scorecard-policy.mjs @PPadgett @randykwheeler
 /scripts/build-vsix.mjs @PPadgett @randykwheeler
 /scripts/check-repo.mjs @PPadgett @randykwheeler
 /scripts/check-reproducible.mjs @PPadgett @randykwheeler
-/scripts/check-scorecard-sarif.mjs @PPadgett @randykwheeler
+/scripts/check-scorecard-results.mjs @PPadgett @randykwheeler
 /scripts/validate-vsix.mjs @PPadgett @randykwheeler
 /scripts/validate-sbom.mjs @PPadgett @randykwheeler
 /package-lock.json @PPadgett @randykwheeler
@@ -24,3 +26,6 @@
 /src/auth.ts @PPadgett @randykwheeler
 /src/graphClient.ts @PPadgett @randykwheeler
 /test/core.fuzz.test.js @PPadgett @randykwheeler
+/test/gate-cli.test.cjs @PPadgett @randykwheeler
+/test/repository-audit.test.cjs @PPadgett @randykwheeler
+/test/scorecard-policy.test.cjs @PPadgett @randykwheeler

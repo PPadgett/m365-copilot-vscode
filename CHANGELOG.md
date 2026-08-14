@@ -17,7 +17,8 @@ All notable changes to this project are documented in this file. The project fol
 - Deterministic performance and artifact-size budgets with machine-readable reports.
 - Scheduled curated mutation testing for security-sensitive boundaries.
 - Risk-based QA strategy documenting automated, manual, conditional, and non-applicable test categories.
-- Exact OpenSSF Scorecard JSON evidence alongside SARIF code-scanning results.
+- Exact OpenSSF Scorecard JSON policy evidence from a single analysis execution, with advisory SARIF retained for code scanning.
+- Regression coverage for active and expired Scorecard waivers, unknown checks, symlinked CLI entry paths, inherited rulesets, redirects, and GitHub Enterprise API bases.
 
 ### Security
 
@@ -28,8 +29,11 @@ All notable changes to this project are documented in this file. The project fol
 - Added drift detection for automatic Copilot code-review configuration; Copilot remains advisory and cannot satisfy required human approval.
 - Isolated Graph URL, request-contract, and bounded HTTP parsing logic for independent contract and integration testing.
 - Added token header-injection and size limits, redirect rejection tests, exact expiry-boundary tests, and path/query/fragment restrictions for Graph requests.
-- Changed live branch-rule auditing to fail when required rule parameters are hidden, absent, malformed, duplicated, or inconsistent with the committed policy.
-- Removed the implicit perfect score for Scorecard catalog rules with no SARIF result; the gate now uses exact JSON scores and rejects inconsistent evidence.
+- Changed live branch-rule auditing to fail when required parameters are hidden, absent, or malformed while correctly aggregating duplicate rule types from applicable organization and repository rulesets.
+- Restored redirect rejection and repository-identity validation in the live GitHub policy audit.
+- Replaced the SARIF score-inference model with exact JSON as the sole required Scorecard policy source.
+- Added fail-closed handling for low-scoring or inconclusive checks that appear only in exact Scorecard JSON.
+- Removed main-module path guards that could silently skip both security gate CLIs through symlinked entry paths.
 
 ### Planned
 
