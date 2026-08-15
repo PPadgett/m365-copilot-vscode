@@ -30,7 +30,10 @@
       "MaintainedID",
       "CodeReviewID",
       "CIIBestPracticesID",
-      "CITestsID"
+      "CITestsID",
+      "PackagingID",
+      "SignedReleasesID",
+      "ContributorsID"
     ]
   },
   "checks": {
@@ -108,11 +111,19 @@
     },
     "PackagingID": {
       "name": "Packaging",
-      "minimumScore": 0
+      "minimumScore": 0,
+      "waiver": {
+        "expires": "2026-12-31",
+        "reason": "The project has not published its first official VSIX release. The release workflow and verification evidence are implemented and will be exercised for v0.1.0."
+      }
     },
     "SignedReleasesID": {
       "name": "Signed-Releases",
-      "minimumScore": 0
+      "minimumScore": 0,
+      "waiver": {
+        "expires": "2026-12-31",
+        "reason": "No official release exists yet. The release workflow is configured to publish provenance and SBOM attestations with the first v0.1.0 release."
+      }
     },
     "ContributorsID": {
       "name": "Contributors",

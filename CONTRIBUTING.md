@@ -42,41 +42,36 @@ npm run checksums
 unzip -t artifacts/*.vsix
 ```
 
-To evaluate saved OpenSSF exact JSON evidence locally:
+A pull request must pass:
 
-```bash
-npm run scorecard:check -- \
-  results.json \
-  .github/scorecard-policy.json \
-  scorecard-policy-report.json \
-  pull-request
-```
+- Repository policy and formatting checks.
+- TypeScript strict compilation.
+- Unit tests with enforced coverage thresholds.
+- Property-based fuzz tests for parsers, validators, and untrusted input boundaries.
+- Node.js 22 and 24 CI jobs.
+- Deterministic package creation, semantic VSIX validation, and archive validation.
+- CodeQL analysis.
+- Dependency review.
+- Secret scanning.
+- OpenSSF Scorecard policy and live repository-settings drift checks.
 
-To audit live GitHub settings, provide a read token through the environment. GitHub CLI is not required:
-
-```bash
-GITHUB_API_URL="https://api.github.com" \
-GITHUB_TOKEN="<read-token>" \
-  npm run repository:audit -- PPadgett/m365-copilot-vscode
-```
-
-A pull request must pass repository policy, strict TypeScript compilation, unit and integration tests, coverage thresholds, fuzzing, Node.js 22 and 24 jobs, deterministic packaging, CodeQL, dependency review, secret scanning, and OpenSSF Scorecard policy.
+The live repository-settings audit requires administrator-readable evidence that the ordinary workflow `GITHUB_TOKEN` cannot expose. Maintainers configure a repository-scoped, read-only `REPOSITORY_POLICY_TOKEN` Actions secret as documented in [Required GitHub repository settings](docs/repository-settings.md#actions-credential-for-fail-closed-evidence). Never place that token in a contributor branch, local configuration file, issue, pull-request comment, or workflow log.
 
 ## Code guidelines
 
 - Keep TypeScript strict and dependency-light.
 - Do not add a runtime dependency without explaining the security and maintenance tradeoff.
-- Never log tokens, authorization headers, full JWTs, cookies, or secret values.
+- Never log access tokens, authorization headers, full JWTs, or secret values.
 - Bound untrusted data before parsing or displaying it.
 - Keep experimental capabilities opt-in.
 - Preserve cancellation and request timeouts for network operations.
-- Add unit, regression, property-based, and contract tests for security-boundary changes.
-- Keep user-facing errors actionable without exposing sensitive response data.
+- Add unit tests and property-based tests for parsing, validation, and security-boundary changes.
+- Keep user-facing error messages actionable without exposing sensitive response data.
 - Use two-space indentation, LF line endings, and a final newline.
 
 ## Commit and pull-request style
 
-Use an imperative subject such as:
+Use an imperative subject that describes the change, for example:
 
 ```text
 Harden Graph error parsing
@@ -84,22 +79,37 @@ Add release provenance attestations
 Document tenant consent requirements
 ```
 
-The pull-request body should explain the problem, intended behavior, security and privacy impact, tests performed, and documentation or migration changes.
+The pull-request body should explain:
+
+- The problem and intended behavior.
+- Security and privacy impact.
+- Tests performed.
+- Documentation or migration changes.
 
 AI-assisted contributions are welcome. The contributor remains responsible for understanding, testing, licensing, and securing every submitted change.
 
 ## Dependency changes
 
-Dependency additions require special scrutiny because extension code runs with the user's workspace privileges. Explain necessity, runtime versus development use, license compatibility, maintenance posture, and alternatives. Exact versions and the lockfile are required. Install scripts remain disabled unless a reviewed exception is documented.
+Dependency additions require special scrutiny because extension code runs with the user's VS Code workspace privileges.
+
+A dependency pull request must include:
+
+- Why the dependency is necessary.
+- Whether it is shipped at runtime or used only for development.
+- License compatibility.
+- Maintenance and security posture.
+- Alternatives considered.
+
+Exact versions and the lockfile are required. Install scripts remain disabled unless a reviewed exception is documented.
 
 ## Testing with Microsoft Graph
 
-Do not commit real tokens, tenant identifiers, proprietary prompts, or response payloads. Use synthetic fixtures. Manual Graph testing must use an approved tenant and test data.
+Do not commit real tokens, tenant identifiers, proprietary prompts, or response payloads. Use synthetic fixtures in tests. Manual Graph testing must use an approved tenant and test data.
 
 ## Documentation
 
-Update the README, changelog, threat model, architecture, or operating documentation when a change affects users, data flow, permissions, security controls, CI evidence, or release operations.
+Update the README, changelog, threat model, or architecture document when a change affects users, data flow, permissions, security controls, or release operations.
 
 ## Review and merge
 
-Maintainers use squash merging and protected `main`. At least one independent approval, resolved conversations, passing required checks, and a current branch are required before merge. Automated reviewers are advisory and do not replace human approval.
+Maintainers use squash merging and a protected `main` branch. At least one approving review, resolved conversations, passing required checks, and current-branch status are expected before merge.

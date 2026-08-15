@@ -2,10 +2,14 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { containsExactHttpUrl } from './security-policy-links.mjs';
+import { validatePolicy as validateRepositoryPolicySchema } from './lib/repository-audit.mjs';
+import {
+  parseWaiverEnd,
+  validatePolicy as validateScorecardPolicySchema
+} from './lib/scorecard-policy.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const failures = [];
-const policyDate = parseDate(process.env.REPOSITORY_POLICY_DATE ?? new Date().toISOString());
 
 const requiredFiles = [
   '.editorconfig',
@@ -45,14 +49,22 @@ const requiredFiles = [
   'scripts/audit-github-rules.mjs',
   'scripts/check-codeql-sarif.mjs',
   'scripts/check-scorecard-results.mjs',
+  'scripts/lib/repository-audit-cli.mjs',
   'scripts/lib/repository-audit.mjs',
+  'scripts/lib/scorecard-policy-cli.mjs',
   'scripts/lib/scorecard-policy.mjs',
+  'scripts/lib/scorecard-sarif.mjs',
+  'scripts/scorecard-json-to-sarif.mjs',
   'scripts/security-policy-links.mjs',
   'test/codeql-sarif.test.cjs',
   'test/core.fuzz.test.js',
   'test/gate-cli.test.cjs',
+  'test/repository-audit-timeout.test.cjs',
   'test/repository-audit.test.cjs',
+  'test/scorecard-policy-cli.test.cjs',
   'test/scorecard-policy.test.cjs',
+  'test/scorecard-sarif.test.cjs',
+  'test/scorecard-workflow-evidence.test.cjs',
   'test/security-policy-links.test.cjs'
 ];
 
@@ -117,6 +129,12 @@ if (!/\bpull_request\s*:/.test(fuzz) || !/\bschedule\s*:/.test(fuzz) || !/npm ru
 
 const repositoryWorkflow = await text('.github/workflows/repository-policy.yml');
 if (!/npm run repository:audit/.test(repositoryWorkflow) || !/^    name: Repository Policy\s*$/m.test(repositoryWorkflow)) fail('Repository policy workflow must audit live settings with a stable check name.');
+if (!repositoryWorkflow.includes('GITHUB_TOKEN: ${{ secrets.REPOSITORY_POLICY_TOKEN }}') || !repositoryWorkflow.includes('REPOSITORY_POLICY_TOKEN: ${{ secrets.REPOSITORY_POLICY_TOKEN }}')) {
+  fail('Repository policy workflow must use the administration-read REPOSITORY_POLICY_TOKEN secret.');
+}
+if (repositoryWorkflow.includes('GITHUB_TOKEN: ${{ github.token }}')) {
+  fail('Repository policy workflow must not use the ordinary GITHUB_TOKEN for administrator-only evidence.');
+}
 
 validateScorecardWorkflow(await text('.github/workflows/scorecard.yml'));
 
@@ -128,7 +146,14 @@ if (failures.length > 0) {
 console.log('Repository policy checks passed.');
 
 function validateRepositoryPolicy(policy, desired) {
-  if (policy.version !== 1 || policy.defaultBranch !== 'main' || policy.rulesetName !== 'Protect main') fail('repository-policy.json must define version 1, main, and Protect main.');
+  try {
+    validateRepositoryPolicySchema(policy);
+  } catch (error) {
+    fail(error.message);
+    return;
+  }
+
+  if (policy.defaultBranch !== 'main' || policy.rulesetName !== 'Protect main') fail('repository-policy.json must define main and Protect main.');
   const requiredSettings = {
     allow_squash_merge: true,
     allow_merge_commit: false,
@@ -137,13 +162,13 @@ function validateRepositoryPolicy(policy, desired) {
     allow_update_branch: true
   };
   for (const [key, value] of Object.entries(requiredSettings)) {
-    if (policy.repository?.[key] !== value) fail(`repository-policy.json ${key} must be ${value}.`);
+    if (policy.repository[key] !== value) fail(`repository-policy.json ${key} must be ${value}.`);
   }
   if (policy.privateVulnerabilityReporting !== true) fail('Private vulnerability reporting must be required.');
 
   const copilotPolicy = policy.copilotCodeReview;
   if (
-    copilotPolicy?.enabled !== true ||
+    copilotPolicy.enabled !== true ||
     typeof copilotPolicy.reviewDraftPullRequests !== 'boolean' ||
     typeof copilotPolicy.reviewOnPush !== 'boolean'
   ) {
@@ -165,22 +190,29 @@ function validateRepositoryPolicy(policy, desired) {
   if (JSON.stringify(pr?.allowed_merge_methods) !== JSON.stringify(['squash'])) fail('The main ruleset must allow only squash merging.');
 
   const copilot = byType.get('copilot_code_review')?.parameters;
-  if (copilot?.review_draft_pull_requests !== copilotPolicy?.reviewDraftPullRequests) {
+  if (copilot?.review_draft_pull_requests !== copilotPolicy.reviewDraftPullRequests) {
     fail('Ruleset Copilot draft-review behavior must match repository-policy.json.');
   }
-  if (copilot?.review_on_push !== copilotPolicy?.reviewOnPush) {
+  if (copilot?.review_on_push !== copilotPolicy.reviewOnPush) {
     fail('Ruleset Copilot push-review behavior must match repository-policy.json.');
   }
 
   const status = byType.get('required_status_checks')?.parameters;
   if (status?.strict_required_status_checks_policy !== true) fail('Required status checks must be strict.');
   const actual = (status?.required_status_checks ?? []).map(check => check.context);
-  if (!sameSet(actual, policy.requiredStatusChecks ?? [])) fail('Ruleset required checks must exactly match repository-policy.json.');
+  if (!sameSet(actual, policy.requiredStatusChecks)) fail('Ruleset required checks must exactly match repository-policy.json.');
 }
 
 function validateScorecardPolicy(policy) {
-  if (policy.version !== 3 || policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) {
-    fail('Scorecard policy must use version 3, default to 10, and fail on unconfigured results.');
+  try {
+    validateScorecardPolicySchema(policy);
+  } catch (error) {
+    fail(error.message);
+    return;
+  }
+
+  if (policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) {
+    fail('Scorecard policy must default to 10 and fail on unconfigured results.');
   }
   const ids = [
     'BranchProtectionID',
@@ -202,7 +234,7 @@ function validateScorecardPolicy(policy) {
     'SignedReleasesID',
     'ContributorsID'
   ];
-  for (const id of ids) if (!policy.checks?.[id]) fail(`Scorecard policy is missing ${id}.`);
+  for (const id of ids) if (!policy.checks[id]) fail(`Scorecard policy is missing ${id}.`);
   const expectedProfiles = {
     'pull-request': [
       'BinaryArtifactsID',
@@ -231,23 +263,29 @@ function validateScorecardPolicy(policy) {
       'MaintainedID',
       'CodeReviewID',
       'CIIBestPracticesID',
-      'CITestsID'
+      'CITestsID',
+      'PackagingID',
+      'SignedReleasesID',
+      'ContributorsID'
     ]
   };
   for (const [name, expected] of Object.entries(expectedProfiles)) {
-    if (!sameSet(policy.profiles?.[name] ?? [], expected)) fail(`Scorecard profile ${name} must contain the expected checks.`);
+    if (!sameSet(policy.profiles[name], expected)) fail(`Scorecard profile ${name} must contain the expected checks.`);
   }
   for (const id of ['BranchProtectionID', 'SecurityPolicyID', 'FuzzingID', 'SASTID', 'DangerousWorkflowID']) {
-    if (policy.checks?.[id]?.waiver) fail(`${id} must not be waived.`);
+    if (policy.checks[id]?.waiver) fail(`${id} must not be waived.`);
   }
-  for (const [id, config] of Object.entries(policy.checks ?? {})) {
+  for (const [id, config] of Object.entries(policy.checks)) {
     const minimum = config.minimumScore ?? policy.defaultMinimumScore;
     if (!Number.isInteger(minimum) || minimum < 0 || minimum > 10) fail(`${id} minimum score must be an integer from 0 through 10.`);
     if ('sarifMinimumScore' in config) fail(`${id} must not encode Scorecard SARIF-emission thresholds.`);
     if (!config.waiver) continue;
     if (typeof config.waiver.reason !== 'string' || config.waiver.reason.length < 20) fail(`${id} waiver needs a substantive reason.`);
-    const expiry = parseWaiver(config.waiver.expires, id);
-    if (expiry && policyDate > expiry) fail(`${id} waiver expired on ${config.waiver.expires}.`);
+    try {
+      parseWaiverEnd(config.waiver);
+    } catch (error) {
+      fail(`${id}: ${error.message}`);
+    }
   }
 }
 
@@ -268,12 +306,17 @@ function validateScorecardWorkflow(source) {
   if (!actionStep) {
     fail('Scorecard analysis job must contain the single-run Scorecard step.');
   } else {
-    for (const required of ['results.json', 'results.sarif', 'results_file:', 'results_format:', 'publish_results:']) {
-      if (!actionStep.source.includes(required)) fail(`Scorecard action step must include ${required}.`);
+    if (!/results_file:\s*results\.json/.test(actionStep.source) || !/results_format:\s*json/.test(actionStep.source) || !/publish_results:/.test(actionStep.source)) {
+      fail('Scorecard action must explicitly emit exact results.json for every event.');
     }
-    if (!actionStep.source.includes("github.event_name == 'pull_request'")) {
-      fail('Scorecard action step must select JSON for pull requests and SARIF for repository runs.');
+    if (/results_(?:file|format):.*github\.event_name/.test(actionStep.source)) {
+      fail('Scorecard action output format must not depend on event type.');
     }
+  }
+
+  const conversion = analysisSteps.get('Generate advisory Scorecard SARIF from exact JSON');
+  if (!conversion || !conversion.source.includes("if: github.event_name != 'pull_request'") || !conversion.source.includes('scorecard-json-to-sarif.mjs') || !conversion.source.includes('results.json') || !conversion.source.includes('results.sarif')) {
+    fail('Repository Scorecard runs must derive advisory SARIF from the exact JSON result.');
   }
 
   const evidenceStep = analysisSteps.get('Upload Scorecard evidence');
@@ -281,7 +324,7 @@ function validateScorecardWorkflow(source) {
     fail('Scorecard evidence upload must retain exact JSON and advisory SARIF when available.');
   }
   const sarifStep = analysisSteps.get('Upload advisory Scorecard SARIF to code scanning');
-  if (!sarifStep || !sarifStep.source.includes("if: github.event_name != 'pull_request'") || !sarifStep.source.includes('results.sarif')) {
+  if (!sarifStep || !sarifStep.source.includes("if: github.event_name != 'pull_request'") || !sarifStep.source.includes('continue-on-error: true') || !sarifStep.source.includes('results.sarif')) {
     fail('Scorecard SARIF upload must be advisory and limited to non-pull-request runs.');
   }
 
@@ -362,10 +405,3 @@ async function json(path) { return JSON.parse(await text(path)); }
 async function exists(path) { try { await stat(join(root, path)); return true; } catch { return false; } }
 function sameSet(a, b) { return a.length === b.length && new Set(a).size === a.length && a.every(value => b.includes(value)); }
 function fail(message) { failures.push(message); }
-function parseDate(value) { const date = new Date(value); if (Number.isNaN(date.getTime())) throw new TypeError('REPOSITORY_POLICY_DATE must be an ISO date.'); return date; }
-function parseWaiver(value, id) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) { fail(`${id} waiver expiry must use YYYY-MM-DD.`); return undefined; }
-  const date = new Date(`${value}T23:59:59.999Z`);
-  if (Number.isNaN(date.getTime())) { fail(`${id} waiver expiry is invalid.`); return undefined; }
-  return date;
-}

@@ -44,17 +44,22 @@ jobs:
       - name: Run OpenSSF Scorecard once
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
-          results_file: ${{ github.event_name == 'pull_request' && 'results.json' || 'results.sarif' }}
-          results_format: ${{ github.event_name == 'pull_request' && 'json' || 'sarif' }}
+          results_file: results.json
+          results_format: json
           publish_results: ${{ github.event_name != 'pull_request' }}
 
-      - name: Verify exact JSON evidence from the same Scorecard execution
+      - name: Generate advisory Scorecard SARIF from exact JSON
+        if: github.event_name != 'pull_request'
+        run: node scripts/scorecard-json-to-sarif.mjs results.json results.sarif
+
+      - name: Verify exact JSON and advisory SARIF evidence
         shell: bash
         run: |
           test -s results.json
           node -e 'const fs = require("node:fs"); const report = JSON.parse(fs.readFileSync("results.json", "utf8")); if (!Array.isArray(report.checks)) throw new Error("results.json must contain a checks array.");'
           if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
             test -s results.sarif
+            node -e 'const fs = require("node:fs"); const report = JSON.parse(fs.readFileSync("results.sarif", "utf8")); if (report.version !== "2.1.0" || !Array.isArray(report.runs)) throw new Error("results.sarif must contain a SARIF 2.1.0 runs array.");'
           fi
 
       - name: Upload Scorecard evidence

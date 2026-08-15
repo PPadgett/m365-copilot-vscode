@@ -11,10 +11,15 @@
 /SECURITY.md @PPadgett @randykwheeler
 /docs/threat-model.md @PPadgett @randykwheeler
 /docs/scorecard-remediation.md @PPadgett @randykwheeler
+/docs/repository-settings.md @PPadgett @randykwheeler
 /scripts/apply-github-ruleset.mjs @PPadgett @randykwheeler
 /scripts/audit-github-rules.mjs @PPadgett @randykwheeler
+/scripts/lib/repository-audit-cli.mjs @PPadgett @randykwheeler
 /scripts/lib/repository-audit.mjs @PPadgett @randykwheeler
+/scripts/lib/scorecard-policy-cli.mjs @PPadgett @randykwheeler
 /scripts/lib/scorecard-policy.mjs @PPadgett @randykwheeler
+/scripts/lib/scorecard-sarif.mjs @PPadgett @randykwheeler
+/scripts/scorecard-json-to-sarif.mjs @PPadgett @randykwheeler
 /scripts/build-vsix.mjs @PPadgett @randykwheeler
 /scripts/check-repo.mjs @PPadgett @randykwheeler
 /scripts/check-reproducible.mjs @PPadgett @randykwheeler
@@ -27,5 +32,9 @@
 /src/graphClient.ts @PPadgett @randykwheeler
 /test/core.fuzz.test.js @PPadgett @randykwheeler
 /test/gate-cli.test.cjs @PPadgett @randykwheeler
+/test/repository-audit-timeout.test.cjs @PPadgett @randykwheeler
 /test/repository-audit.test.cjs @PPadgett @randykwheeler
+/test/scorecard-policy-cli.test.cjs @PPadgett @randykwheeler
 /test/scorecard-policy.test.cjs @PPadgett @randykwheeler
+/test/scorecard-sarif.test.cjs @PPadgett @randykwheeler
+/test/scorecard-workflow-evidence.test.cjs @PPadgett @randykwheeler

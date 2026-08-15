@@ -36,7 +36,9 @@ export async function runRepositoryAudit({
 
   let rulesetDetail;
   if (Array.isArray(rulesets)) {
-    const summary = rulesets.find(candidate => candidate?.name === policy.rulesetName && candidate?.source_type === 'Repository');
+    const summary = rulesets.find(
+      candidate => candidate?.name === policy.rulesetName && candidate?.source_type === 'Repository'
+    );
     if (summary?.id) {
       rulesetDetail = await client.requestJson(`repos/${encodedRepository}/rulesets/${summary.id}`);
     }
@@ -55,31 +57,53 @@ export async function runRepositoryAudit({
 
 export function auditRepositorySnapshot(snapshot, policy) {
   validatePolicy(policy);
+  if (!isRecord(snapshot)) {
+    throw new TypeError('Repository audit snapshot must be an object.');
+  }
+
   const failures = [];
   const warnings = [];
   const requestedRepository = snapshot.repository;
   const actualRepository = snapshot.metadata?.full_name;
 
-  if (typeof actualRepository !== 'string' || actualRepository.toLowerCase() !== requestedRepository.toLowerCase()) {
-    failures.push(`GitHub returned repository identity ${JSON.stringify(actualRepository)}; expected ${JSON.stringify(requestedRepository)}.`);
+  if (
+    typeof actualRepository !== 'string'
+    || typeof requestedRepository !== 'string'
+    || actualRepository.toLowerCase() !== requestedRepository.toLowerCase()
+  ) {
+    failures.push(
+      `GitHub returned repository identity ${JSON.stringify(actualRepository)}; expected ${JSON.stringify(requestedRepository)}.`
+    );
   }
 
   for (const [key, expected] of Object.entries(policy.repository)) {
     if (!(key in (snapshot.metadata ?? {})) || snapshot.metadata[key] === undefined) {
-      warnings.push(
-        `Repository setting ${key} is not visible to the current token; use a fine-grained token with Administration: read for full verification.`
+      failures.push(
+        `Required repository setting ${key} is not visible to the current token; use a token with Administration: read.`
       );
     } else if (snapshot.metadata[key] !== expected) {
-      failures.push(`Repository setting ${key} is ${JSON.stringify(snapshot.metadata[key])}; expected ${JSON.stringify(expected)}.`);
+      failures.push(
+        `Repository setting ${key} is ${JSON.stringify(snapshot.metadata[key])}; expected ${JSON.stringify(expected)}.`
+      );
     }
   }
 
   if (snapshot.metadata?.default_branch !== policy.defaultBranch) {
-    failures.push(`Default branch is ${JSON.stringify(snapshot.metadata?.default_branch)}; expected ${JSON.stringify(policy.defaultBranch)}.`);
-  }
-  if (snapshot.vulnerabilityReporting?.enabled !== policy.privateVulnerabilityReporting) {
     failures.push(
-      `Private vulnerability reporting is ${Boolean(snapshot.vulnerabilityReporting?.enabled)}; expected ${policy.privateVulnerabilityReporting}.`
+      `Default branch is ${JSON.stringify(snapshot.metadata?.default_branch)}; expected ${JSON.stringify(policy.defaultBranch)}.`
+    );
+  }
+
+  if (
+    !isRecord(snapshot.vulnerabilityReporting)
+    || typeof snapshot.vulnerabilityReporting.enabled !== 'boolean'
+  ) {
+    failures.push(
+      'Private vulnerability reporting state is not visible or invalid; use a token with Administration: read.'
+    );
+  } else if (snapshot.vulnerabilityReporting.enabled !== policy.privateVulnerabilityReporting) {
+    failures.push(
+      `Private vulnerability reporting is ${snapshot.vulnerabilityReporting.enabled}; expected ${policy.privateVulnerabilityReporting}.`
     );
   }
 
@@ -119,13 +143,15 @@ export function auditEffectiveRules(rules, policy, failures) {
   });
 }
 
-export function auditRuleset(ruleset, policy, failures, warnings) {
+export function auditRuleset(ruleset, policy, failures, warnings = []) {
   if (!isRecord(ruleset)) {
     failures.push('GitHub returned invalid repository-ruleset details.');
     return;
   }
   if (ruleset.name !== policy.rulesetName) {
-    failures.push(`Ruleset name is ${JSON.stringify(ruleset.name)}; expected ${JSON.stringify(policy.rulesetName)}.`);
+    failures.push(
+      `Ruleset name is ${JSON.stringify(ruleset.name)}; expected ${JSON.stringify(policy.rulesetName)}.`
+    );
   }
   if (ruleset.enforcement !== 'active') {
     failures.push(`Ruleset enforcement is ${JSON.stringify(ruleset.enforcement)}; expected "active".`);
@@ -133,9 +159,10 @@ export function auditRuleset(ruleset, policy, failures, warnings) {
   if (ruleset.target !== 'branch') {
     failures.push(`Ruleset target is ${JSON.stringify(ruleset.target)}; expected "branch".`);
   }
+
   if (!Object.hasOwn(ruleset, 'bypass_actors') || ruleset.bypass_actors === undefined) {
-    warnings.push(
-      'Ruleset bypass actors are not visible to the current token; use a fine-grained token with Administration: read for full verification.'
+    failures.push(
+      'Ruleset bypass actors are not visible to the current token; use a token with Administration: read.'
     );
   } else if (!Array.isArray(ruleset.bypass_actors)) {
     failures.push('GitHub returned an invalid ruleset bypass-actors value.');
@@ -149,8 +176,8 @@ export function auditRuleset(ruleset, policy, failures, warnings) {
   }
 
   if (!Array.isArray(ruleset.rules)) {
-    warnings.push(
-      'Ruleset rule details are not visible to the current token; effective branch rules remain the enforceable source for drift verification.'
+    failures.push(
+      'Repository ruleset rule details are not visible; use a token with Administration: read.'
     );
     return;
   }
@@ -171,6 +198,10 @@ export function createGitHubApiClient({
 } = {}) {
   const baseUrl = normalizeApiUrl(apiUrl);
   const timeoutMs = normalizeRequestTimeout(requestTimeoutMs);
+  if (typeof fetchImpl !== 'function') {
+    throw new TypeError('A Fetch-compatible implementation is required.');
+  }
+
   const headers = {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'm365-copilot-vscode-repository-audit',
@@ -183,7 +214,9 @@ export function createGitHubApiClient({
       const normalizedEndpoint = String(endpoint).replace(/^\/+/, '');
       const url = `${baseUrl}/${normalizedEndpoint}`;
       const controller = new AbortController();
-      const timeoutError = new Error(`GitHub API request timed out after ${timeoutMs} ms for ${url}.`);
+      const timeoutError = new Error(
+        `GitHub API request timed out after ${timeoutMs} ms for ${url}.`
+      );
       let timeoutHandle;
       const timeoutPromise = new Promise((_, reject) => {
         timeoutHandle = setTimeout(() => {
@@ -225,7 +258,7 @@ export function createGitHubApiClient({
   };
 }
 
-export function renderRepositoryAuditSummary(repository, branch, failures, warnings) {
+export function renderRepositoryAuditSummary(repository, branch, failures, warnings = []) {
   const lines = [
     '## GitHub repository policy',
     '',
@@ -234,42 +267,67 @@ export function renderRepositoryAuditSummary(repository, branch, failures, warni
     `Branch: \`${branch}\``,
     ''
   ];
-  if (failures.length === 0) {
-    lines.push('Observable repository settings and active branch rules match the committed policy.');
+
+  if (failures.length === 0 && warnings.length === 0) {
+    lines.push('All required repository settings and active branch rules match the committed policy.');
   } else {
-    lines.push(`Repository policy failed with ${failures.length} drift item(s):`);
-    for (const failure of failures) {
-      lines.push(`- ${failure}`);
+    if (failures.length > 0) {
+      lines.push(`Repository policy failed with ${failures.length} drift or evidence item(s):`);
+      for (const failure of failures) {
+        lines.push(`- ${failure}`);
+      }
+    }
+    if (warnings.length > 0) {
+      lines.push(
+        '',
+        `Repository policy could not verify ${warnings.length} additional evidence item(s):`
+      );
+      for (const warning of warnings) {
+        lines.push(`- ${warning}`);
+      }
     }
   }
-  if (warnings.length > 0) {
-    lines.push('', `Repository policy emitted ${warnings.length} visibility warning(s):`);
-    for (const warning of warnings) {
-      lines.push(`- ${warning}`);
-    }
-  }
+
   return lines.join('\n');
 }
 
 export function validatePolicy(value) {
-  if (!value || value.version !== 1 || typeof value.defaultBranch !== 'string') {
+  if (!isRecord(value) || value.version !== 1 || !isNonEmptyString(value.defaultBranch)) {
     throw new TypeError('Repository policy must use version 1 and define defaultBranch.');
   }
-  if (typeof value.rulesetName !== 'string' || !value.rulesetName) {
+  if (!isNonEmptyString(value.rulesetName)) {
     throw new TypeError('Repository policy must define rulesetName.');
   }
-  if (!value.repository || typeof value.repository !== 'object') {
-    throw new TypeError('Repository policy must define repository settings.');
+  if (!isRecord(value.repository) || Object.keys(value.repository).length === 0) {
+    throw new TypeError('Repository policy must define repository settings as an object.');
   }
-  if (!Array.isArray(value.requiredStatusChecks) || value.requiredStatusChecks.length === 0) {
-    throw new TypeError('Repository policy must define requiredStatusChecks.');
+  for (const [key, expected] of Object.entries(value.repository)) {
+    if (!isNonEmptyString(key) || typeof expected !== 'boolean') {
+      throw new TypeError('Repository policy settings must map non-empty names to booleans.');
+    }
+  }
+  if (typeof value.privateVulnerabilityReporting !== 'boolean') {
+    throw new TypeError('Repository policy must define privateVulnerabilityReporting.');
   }
   if (
-    value.copilotCodeReview?.enabled !== true ||
-    typeof value.copilotCodeReview.reviewDraftPullRequests !== 'boolean' ||
-    typeof value.copilotCodeReview.reviewOnPush !== 'boolean'
+    !Array.isArray(value.requiredStatusChecks)
+    || value.requiredStatusChecks.length === 0
+    || new Set(value.requiredStatusChecks).size !== value.requiredStatusChecks.length
+    || value.requiredStatusChecks.some(check => !isNonEmptyString(check))
   ) {
-    throw new TypeError('Repository policy must define enabled automatic Copilot code review settings.');
+    throw new TypeError(
+      'Repository policy must define unique, non-empty requiredStatusChecks strings.'
+    );
+  }
+  if (
+    !isRecord(value.copilotCodeReview)
+    || value.copilotCodeReview.enabled !== true
+    || typeof value.copilotCodeReview.reviewDraftPullRequests !== 'boolean'
+    || typeof value.copilotCodeReview.reviewOnPush !== 'boolean'
+  ) {
+    throw new TypeError(
+      'Repository policy must define enabled automatic Copilot code review settings.'
+    );
   }
 }
 
@@ -288,30 +346,59 @@ function auditRuleCollection(rules, policy, failures, options) {
     }
   }
 
-  const pullRequests = collectParameters(groups.get('pull_request'), 'pull_request', failures, options.label);
+  const pullRequests = collectParameters(
+    groups.get('pull_request'),
+    'pull_request',
+    failures,
+    options.label
+  );
   if (pullRequests.length > 0) {
     const aggregate = aggregatePullRequestRules(pullRequests, failures, options.label);
     requireAtLeast(aggregate.requiredApprovals, 1, 'required approving reviews', failures);
     requireTrue(aggregate.dismissStaleReviews, 'dismiss stale reviews', failures);
     requireTrue(aggregate.requireCodeOwnerReview, 'CODEOWNERS review', failures);
     requireTrue(aggregate.requireLastPushApproval, 'last-push approval', failures);
-    requireTrue(aggregate.requireReviewThreadResolution, 'review-thread resolution', failures);
-    if (aggregate.allowedMergeMethods.length !== 1 || aggregate.allowedMergeMethods[0] !== 'squash') {
+    requireTrue(
+      aggregate.requireReviewThreadResolution,
+      'review-thread resolution',
+      failures
+    );
+    if (
+      aggregate.allowedMergeMethods.length !== 1
+      || aggregate.allowedMergeMethods[0] !== 'squash'
+    ) {
       failures.push(
         `${options.label} effective merge methods are ${JSON.stringify(aggregate.allowedMergeMethods)}; expected only squash.`
       );
     }
   }
 
-  const copilotRules = collectParameters(groups.get('copilot_code_review'), 'copilot_code_review', failures, options.label);
+  const copilotRules = collectParameters(
+    groups.get('copilot_code_review'),
+    'copilot_code_review',
+    failures,
+    options.label
+  );
   if (copilotRules.length > 0) {
-    const reviewDrafts = copilotRules.some(parameters => parameters.review_draft_pull_requests === true);
+    const reviewDrafts = copilotRules.some(
+      parameters => parameters.review_draft_pull_requests === true
+    );
     const reviewOnPush = copilotRules.some(parameters => parameters.review_on_push === true);
-    if (copilotRules.some(parameters => typeof parameters.review_draft_pull_requests !== 'boolean')) {
-      failures.push(`${options.label} contain a Copilot rule without a boolean review_draft_pull_requests value.`);
+    if (
+      copilotRules.some(
+        parameters => typeof parameters.review_draft_pull_requests !== 'boolean'
+      )
+    ) {
+      failures.push(
+        `${options.label} contain a Copilot rule without a boolean review_draft_pull_requests value.`
+      );
     }
-    if (copilotRules.some(parameters => typeof parameters.review_on_push !== 'boolean')) {
-      failures.push(`${options.label} contain a Copilot rule without a boolean review_on_push value.`);
+    if (
+      copilotRules.some(parameters => typeof parameters.review_on_push !== 'boolean')
+    ) {
+      failures.push(
+        `${options.label} contain a Copilot rule without a boolean review_on_push value.`
+      );
     }
     if (reviewDrafts !== policy.copilotCodeReview.reviewDraftPullRequests) {
       failures.push(
@@ -325,22 +412,37 @@ function auditRuleCollection(rules, policy, failures, options) {
     }
   }
 
-  const statusRules = collectParameters(groups.get('required_status_checks'), 'required_status_checks', failures, options.label);
+  const statusRules = collectParameters(
+    groups.get('required_status_checks'),
+    'required_status_checks',
+    failures,
+    options.label
+  );
   if (statusRules.length > 0) {
-    const strict = statusRules.some(parameters => parameters.strict_required_status_checks_policy === true);
-    if (statusRules.some(parameters => typeof parameters.strict_required_status_checks_policy !== 'boolean')) {
-      failures.push(`${options.label} contain a status-check rule without a boolean strict policy value.`);
+    const strict = statusRules.some(
+      parameters => parameters.strict_required_status_checks_policy === true
+    );
+    if (
+      statusRules.some(
+        parameters => typeof parameters.strict_required_status_checks_policy !== 'boolean'
+      )
+    ) {
+      failures.push(
+        `${options.label} contain a status-check rule without a boolean strict policy value.`
+      );
     }
     requireTrue(strict, 'strict required status checks', failures);
 
     const contexts = new Set();
     for (const parameters of statusRules) {
       if (!Array.isArray(parameters.required_status_checks)) {
-        failures.push(`${options.label} required-status-check parameters must include an array of checks.`);
+        failures.push(
+          `${options.label} required-status-check parameters must include an array of checks.`
+        );
         continue;
       }
       for (const check of parameters.required_status_checks) {
-        if (!isRecord(check) || typeof check.context !== 'string' || !check.context.trim()) {
+        if (!isRecord(check) || !isNonEmptyString(check.context)) {
           failures.push(`${options.label} contain a malformed required status-check entry.`);
           continue;
         }
@@ -357,7 +459,9 @@ function auditRuleCollection(rules, policy, failures, options) {
     if (!options.allowExtraStatusChecks) {
       for (const context of contexts) {
         if (!expected.has(context)) {
-          failures.push(`Repository ruleset contains unexpected required status check ${context}.`);
+          failures.push(
+            `Repository ruleset contains unexpected required status check ${context}.`
+          );
         }
       }
     }
@@ -367,7 +471,7 @@ function auditRuleCollection(rules, policy, failures, options) {
 function groupRules(rules, failures, options) {
   const groups = new Map();
   for (const rule of rules) {
-    if (!isRecord(rule) || typeof rule.type !== 'string' || !rule.type) {
+    if (!isRecord(rule) || !isNonEmptyString(rule.type)) {
       failures.push(`${options.label} contain an invalid rule entry.`);
       continue;
     }
@@ -406,10 +510,16 @@ function aggregatePullRequestRules(parametersList, failures, label) {
   let requireReviewThreadResolution = false;
 
   for (const parameters of parametersList) {
-    if (!Number.isInteger(parameters.required_approving_review_count) || parameters.required_approving_review_count < 0) {
+    if (
+      !Number.isInteger(parameters.required_approving_review_count)
+      || parameters.required_approving_review_count < 0
+    ) {
       failures.push(`${label} contain an invalid required_approving_review_count.`);
     } else {
-      requiredApprovals = Math.max(requiredApprovals, parameters.required_approving_review_count);
+      requiredApprovals = Math.max(
+        requiredApprovals,
+        parameters.required_approving_review_count
+      );
     }
 
     for (const key of [
@@ -419,24 +529,34 @@ function aggregatePullRequestRules(parametersList, failures, label) {
       'required_review_thread_resolution'
     ]) {
       if (typeof parameters[key] !== 'boolean') {
-        failures.push(`${label} contain a pull-request rule without a boolean ${key} value.`);
+        failures.push(
+          `${label} contain a pull-request rule without a boolean ${key} value.`
+        );
       }
     }
 
     dismissStaleReviews ||= parameters.dismiss_stale_reviews_on_push === true;
     requireCodeOwnerReview ||= parameters.require_code_owner_review === true;
     requireLastPushApproval ||= parameters.require_last_push_approval === true;
-    requireReviewThreadResolution ||= parameters.required_review_thread_resolution === true;
+    requireReviewThreadResolution ||=
+      parameters.required_review_thread_resolution === true;
 
-    if (!Array.isArray(parameters.allowed_merge_methods) || parameters.allowed_merge_methods.length === 0) {
+    if (
+      !Array.isArray(parameters.allowed_merge_methods)
+      || parameters.allowed_merge_methods.length === 0
+    ) {
       failures.push(`${label} contain a pull-request rule without allowed_merge_methods.`);
       continue;
     }
-    const methods = new Set(parameters.allowed_merge_methods.filter(method => typeof method === 'string' && method));
+    const methods = new Set(
+      parameters.allowed_merge_methods.filter(method => isNonEmptyString(method))
+    );
     if (methods.size !== parameters.allowed_merge_methods.length) {
       failures.push(`${label} contain malformed or duplicate allowed merge methods.`);
     }
-    allowed = allowed === undefined ? methods : new Set([...allowed].filter(method => methods.has(method)));
+    allowed = allowed === undefined
+      ? methods
+      : new Set([...allowed].filter(method => methods.has(method)));
   }
 
   return {
@@ -450,7 +570,8 @@ function aggregatePullRequestRules(parametersList, failures, label) {
 }
 
 function describeRule(rule, fallbackType) {
-  const source = typeof rule?.ruleset_source === 'string' ? ` from ${rule.ruleset_source}` : '';
+  const source =
+    typeof rule?.ruleset_source === 'string' ? ` from ${rule.ruleset_source}` : '';
   const id = Number.isInteger(rule?.ruleset_id) ? ` (ruleset ${rule.ruleset_id})` : '';
   return `${fallbackType}${source}${id}`;
 }
@@ -466,14 +587,18 @@ function normalizeApiUrl(value) {
     throw new TypeError('GITHUB_API_URL must use HTTPS.');
   }
   if (url.username || url.password || url.search || url.hash) {
-    throw new TypeError('GITHUB_API_URL must not include credentials, a query, or a fragment.');
+    throw new TypeError(
+      'GITHUB_API_URL must not include credentials, a query, or a fragment.'
+    );
   }
   return url.href.replace(/\/$/, '');
 }
 
 function normalizeRequestTimeout(value) {
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new TypeError('GitHub API request timeout must be a positive safe integer in milliseconds.');
+    throw new TypeError(
+      'GitHub API request timeout must be a positive safe integer in milliseconds.'
+    );
   }
   return value;
 }
@@ -481,22 +606,31 @@ function normalizeRequestTimeout(value) {
 async function readBoundedText(response, url) {
   const declaredLength = Number(response.headers?.get?.('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_CHARS) {
-    throw new Error(`GitHub API response exceeded ${MAX_RESPONSE_CHARS} bytes for ${url}.`);
+    throw new Error(
+      `GitHub API response exceeded ${MAX_RESPONSE_CHARS} bytes for ${url}.`
+    );
   }
   const text = await response.text();
   if (text.length > MAX_RESPONSE_CHARS) {
-    throw new Error(`GitHub API response exceeded ${MAX_RESPONSE_CHARS} characters for ${url}.`);
+    throw new Error(
+      `GitHub API response exceeded ${MAX_RESPONSE_CHARS} characters for ${url}.`
+    );
   }
   return text;
 }
 
 function sanitize(value) {
-  return String(value || 'request failed without response body').replace(/\s+/g, ' ').trim().slice(0, 500);
+  return String(value || 'request failed without response body')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
 }
 
 function validateRepository(repository) {
   if (!repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
-    throw new Error('Supply owner/repository as the first argument or set GITHUB_REPOSITORY.');
+    throw new Error(
+      'Supply owner/repository as the first argument or set GITHUB_REPOSITORY.'
+    );
   }
 }
 
@@ -508,10 +642,16 @@ function requireTrue(value, name, failures) {
 
 function requireAtLeast(value, minimum, name, failures) {
   if (!Number.isInteger(value) || value < minimum) {
-    failures.push(`Branch protection requires ${value ?? 0} ${name}; expected at least ${minimum}.`);
+    failures.push(
+      `Branch protection requires ${value ?? 0} ${name}; expected at least ${minimum}.`
+    );
   }
 }
 
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
 }

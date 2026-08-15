@@ -1,6 +1,6 @@
 # Required GitHub Repository Settings
 
-Repository files define the expected controls, while GitHub enforces them. The read-only `Repository Policy` workflow fails whenever the live repository drifts from `.github/repository-policy.json` or `.github/rulesets/main.json`.
+Repository files define the expected controls, while GitHub enforces them. The `Repository Policy` workflow fails whenever the live repository drifts from `.github/repository-policy.json` or `.github/rulesets/main.json`, or when required administrator-visible evidence cannot be read.
 
 ## Apply the committed settings
 
@@ -60,7 +60,7 @@ The one-approval rule is intentional for the current two-maintainer project. The
 
 ## Audit the live settings
 
-The read-only audit uses Node.js Fetch rather than GitHub CLI. It honors the same API-base contract as the apply script:
+The audit uses Node.js Fetch rather than GitHub CLI. It honors the same API-base contract as the apply script:
 
 ```bash
 export GITHUB_API_URL="https://api.github.com"
@@ -69,11 +69,31 @@ npm run repository:audit -- PPadgett/m365-copilot-vscode
 unset GITHUB_TOKEN
 ```
 
-`GITHUB_API_URL` may point to a GitHub Enterprise API base such as `https://github.example/api/v3`. The audit rejects redirects and verifies that GitHub returned the requested repository identity.
+`GITHUB_API_URL` may point to a GitHub Enterprise API base such as `https://github.example/api/v3`. The audit rejects redirects, bounds every API request, verifies that GitHub returned the requested repository identity, and fails when any required setting or ruleset field is hidden, absent, malformed, or different from policy.
 
 The effective branch-rules endpoint can return more than one rule of the same type because organization and repository rulesets are cumulative. The audit aggregates those rules instead of treating duplicates as malformed. It then checks the repository-owned `Protect main` ruleset separately.
 
-The automatic workflow uses the ordinary read-only `GITHUB_TOKEN`. Administrator-only fields that GitHub omits are reported as visibility warnings; missing enforceable rule parameters and real drift still fail.
+### Actions credential for fail-closed evidence
+
+The ordinary workflow `GITHUB_TOKEN` cannot read all administrator-only repository and ruleset fields. Configure this repository Actions secret:
+
+```text
+REPOSITORY_POLICY_TOKEN
+```
+
+Use a fine-grained personal access token with:
+
+```text
+Resource owner: PPadgett
+Repository access: m365-copilot-vscode only
+Repository permission: Administration — Read-only
+```
+
+Do not grant write permissions or access to other repositories. The workflow places this credential only in the live audit step, masks it in logs, and rejects a missing credential before contacting GitHub. Rotate it before expiration and immediately after suspected disclosure.
+
+A same-repository pull request receives the full fail-closed audit. GitHub withholds repository secrets from fork pull requests, so the privileged audit job is skipped for forks; local policy checks, the remaining required CI checks, CODEOWNERS review, and the trusted `main`/scheduled audits still apply.
+
+The audit no longer treats inaccessible administrator evidence as a warning. Missing merge settings, private-vulnerability-reporting state, ruleset rules, or bypass actors are policy failures.
 
 ## GitHub Copilot code review
 

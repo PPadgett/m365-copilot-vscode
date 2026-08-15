@@ -1,35 +1,4 @@
-import { appendFile, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import {
-  renderRepositoryAuditSummary,
-  runRepositoryAudit
-} from './lib/repository-audit.mjs';
+import { runRepositoryAuditCli } from './lib/repository-audit-cli.mjs';
 
-const root = resolve(import.meta.dirname, '..');
-
-export async function main(argv = process.argv.slice(2), environment = process.env) {
-  const repository = argv[0] ?? environment.GITHUB_REPOSITORY;
-  const policyPath = resolve(root, argv[1] ?? '.github/repository-policy.json');
-  const policy = JSON.parse(await readFile(policyPath, 'utf8'));
-  const branch = environment.GITHUB_DEFAULT_BRANCH ?? policy.defaultBranch;
-
-  const { failures, warnings } = await runRepositoryAudit({
-    repository,
-    policy,
-    branch,
-    apiUrl: environment.GITHUB_API_URL,
-    token: environment.GITHUB_TOKEN,
-    apiVersion: environment.GITHUB_API_VERSION
-  });
-
-  const summary = renderRepositoryAuditSummary(repository, branch, failures, warnings);
-  console.log(summary);
-  if (environment.GITHUB_STEP_SUMMARY) {
-    await appendFile(environment.GITHUB_STEP_SUMMARY, `${summary}\n`);
-  }
-  if (failures.length > 0) {
-    process.exitCode = 1;
-  }
-}
-
-await main();
+const result = await runRepositoryAuditCli();
+process.exitCode = result.exitCode;

@@ -22,6 +22,7 @@ concurrency:
 jobs:
   policy:
     name: Repository Policy
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -36,8 +37,17 @@ jobs:
           node-version: 24
           check-latest: true
 
+      - name: Require repository administration-read evidence token
+        env:
+          REPOSITORY_POLICY_TOKEN: ${{ secrets.REPOSITORY_POLICY_TOKEN }}
+        run: |
+          if [ -z "$REPOSITORY_POLICY_TOKEN" ]; then
+            echo "::error::Configure REPOSITORY_POLICY_TOKEN as a repository-scoped fine-grained token with Administration: read."
+            exit 1
+          fi
+
       - name: Audit live GitHub settings against committed policy
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.REPOSITORY_POLICY_TOKEN }}
           GITHUB_DEFAULT_BRANCH: main
         run: npm run repository:audit -- "${{ github.repository }}"
