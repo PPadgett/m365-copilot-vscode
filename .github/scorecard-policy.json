@@ -1,46 +1,84 @@
 {
-  "version": 2,
+  "version": 3,
   "defaultMinimumScore": 10,
   "failOnUnconfiguredResults": true,
   "profiles": {
     "pull-request": [
+      "BinaryArtifactsID",
+      "DependencyUpdateToolID",
+      "LicenseID",
+      "PinnedDependenciesID",
       "SecurityPolicyID",
-      "FuzzingID",
-      "SASTID"
+      "TokenPermissionsID",
+      "DangerousWorkflowID",
+      "VulnerabilitiesID",
+      "SASTID",
+      "FuzzingID"
     ],
     "repository": [
       "BranchProtectionID",
-      "CodeReviewID",
+      "BinaryArtifactsID",
+      "DependencyUpdateToolID",
+      "LicenseID",
+      "PinnedDependenciesID",
       "SecurityPolicyID",
-      "FuzzingID",
+      "TokenPermissionsID",
+      "DangerousWorkflowID",
+      "VulnerabilitiesID",
       "SASTID",
+      "FuzzingID",
       "MaintainedID",
-      "CIIBestPracticesID"
+      "CodeReviewID",
+      "CIIBestPracticesID",
+      "CITestsID",
+      "PackagingID",
+      "SignedReleasesID",
+      "ContributorsID"
     ]
   },
   "checks": {
     "BranchProtectionID": {
       "name": "Branch-Protection",
-      "minimumScore": 6
+      "minimumScore": 8
     },
-    "CodeReviewID": {
-      "name": "Code-Review",
-      "minimumScore": 6,
-      "waiver": {
-        "expires": "2026-10-15",
-        "reason": "The repository is new and needs a second human maintainer plus reviewed change history. Tracked in https://github.com/PPadgett/m365-copilot-vscode/issues/3."
-      }
+    "BinaryArtifactsID": {
+      "name": "Binary-Artifacts",
+      "minimumScore": 10
+    },
+    "DependencyUpdateToolID": {
+      "name": "Dependency-Update-Tool",
+      "minimumScore": 10
+    },
+    "LicenseID": {
+      "name": "License",
+      "minimumScore": 9
+    },
+    "PinnedDependenciesID": {
+      "name": "Pinned-Dependencies",
+      "minimumScore": 10
     },
     "SecurityPolicyID": {
       "name": "Security-Policy",
       "minimumScore": 7
     },
-    "FuzzingID": {
-      "name": "Fuzzing",
+    "TokenPermissionsID": {
+      "name": "Token-Permissions",
+      "minimumScore": 10
+    },
+    "DangerousWorkflowID": {
+      "name": "Dangerous-Workflow",
+      "minimumScore": 10
+    },
+    "VulnerabilitiesID": {
+      "name": "Vulnerabilities",
       "minimumScore": 10
     },
     "SASTID": {
       "name": "SAST",
+      "minimumScore": 10
+    },
+    "FuzzingID": {
+      "name": "Fuzzing",
       "minimumScore": 10
     },
     "MaintainedID": {
@@ -51,13 +89,45 @@
         "reason": "OpenSSF Scorecard intentionally scores repositories created within the previous 90 days as zero. This repository reaches 90 days on 2026-11-09."
       }
     },
+    "CodeReviewID": {
+      "name": "Code-Review",
+      "minimumScore": 6,
+      "waiver": {
+        "expires": "2026-10-15",
+        "reason": "The repository is new and needs enough reviewed change history for Scorecard to observe the enforced human-review process. Tracked in issue 3."
+      }
+    },
     "CIIBestPracticesID": {
       "name": "CII-Best-Practices",
       "minimumScore": 2,
       "waiver": {
         "expires": "2026-09-30",
-        "reason": "OpenSSF Best Practices registration requires an interactive maintainer attestation. Tracked in https://github.com/PPadgett/m365-copilot-vscode/issues/4."
+        "reason": "The OpenSSF Best Practices registration is complete, but the project entry and README badge still require a reviewed follow-up change. Tracked in issue 4."
       }
+    },
+    "CITestsID": {
+      "name": "CI-Tests",
+      "minimumScore": 10
+    },
+    "PackagingID": {
+      "name": "Packaging",
+      "minimumScore": 0,
+      "waiver": {
+        "expires": "2026-12-31",
+        "reason": "The project has not published its first official VSIX release. The release workflow and verification evidence are implemented and will be exercised for v0.1.0."
+      }
+    },
+    "SignedReleasesID": {
+      "name": "Signed-Releases",
+      "minimumScore": 0,
+      "waiver": {
+        "expires": "2026-12-31",
+        "reason": "No official release exists yet. The release workflow is configured to publish provenance and SBOM attestations with the first v0.1.0 release."
+      }
+    },
+    "ContributorsID": {
+      "name": "Contributors",
+      "minimumScore": 0
     }
   }
 }

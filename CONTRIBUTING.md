@@ -55,6 +55,8 @@ A pull request must pass:
 - Secret scanning.
 - OpenSSF Scorecard policy and live repository-settings drift checks.
 
+The live repository-settings audit requires administrator-readable evidence that the ordinary workflow `GITHUB_TOKEN` cannot expose. Maintainers configure a repository-scoped, read-only `REPOSITORY_POLICY_TOKEN` Actions secret as documented in [Required GitHub repository settings](docs/repository-settings.md#actions-credential-for-fail-closed-evidence). Never place that token in a contributor branch, local configuration file, issue, pull-request comment, or workflow log.
+
 ## Code guidelines
 
 - Keep TypeScript strict and dependency-light.

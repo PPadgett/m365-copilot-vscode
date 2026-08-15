@@ -17,6 +17,11 @@ All notable changes to this project are documented in this file. The project fol
 - Deterministic performance and artifact-size budgets with machine-readable reports.
 - Scheduled curated mutation testing for security-sensitive boundaries.
 - Risk-based QA strategy documenting automated, manual, conditional, and non-applicable test categories.
+- Exact OpenSSF Scorecard JSON policy evidence from a single analysis execution, with advisory SARIF retained for code scanning.
+- Regression coverage for active and expired Scorecard waivers, unknown checks, symlinked CLI entry paths, inherited rulesets, redirects, and GitHub Enterprise API bases.
+- Diagnostic Scorecard policy reports for malformed or missing evidence, including schema-validation failures.
+- Repository-owned conversion of exact Scorecard JSON into non-gating advisory SARIF.
+- Regression coverage for invisible repository evidence, strict calendar dates, omitted waived checks, inert policy controls, and import-safe CLI implementations.
 
 ### Security
 
@@ -27,6 +32,18 @@ All notable changes to this project are documented in this file. The project fol
 - Added drift detection for automatic Copilot code-review configuration; Copilot remains advisory and cannot satisfy required human approval.
 - Isolated Graph URL, request-contract, and bounded HTTP parsing logic for independent contract and integration testing.
 - Added token header-injection and size limits, redirect rejection tests, exact expiry-boundary tests, and path/query/fragment restrictions for Graph requests.
+- Changed live branch-rule auditing to fail when required parameters are hidden, absent, or malformed while correctly aggregating duplicate rule types from applicable organization and repository rulesets.
+- Restored redirect rejection and repository-identity validation in the live GitHub policy audit.
+- Replaced the SARIF score-inference model with exact JSON as the sole required Scorecard policy source.
+- Added fail-closed handling for low-scoring or inconclusive checks that appear only in exact Scorecard JSON.
+- Removed main-module path guards that could silently skip both security gate CLIs through symlinked entry paths.
+- Changed administrator-only repository settings and ruleset fields from visibility warnings into required audit evidence.
+- Added a repository-scoped Administration-read Actions credential contract for full live-policy verification.
+- Prevented waiver expiration dates from becoming automatic CI outages when the underlying Scorecard control already passes.
+- Rejected impossible waiver dates instead of accepting JavaScript calendar rollover.
+- Made Packaging, Signed-Releases, and Contributors active repository-profile controls rather than inert configuration.
+- Preserved policy diagnostics when malformed evidence makes evaluation throw.
+- Bounded every repository-audit GitHub API request with an abortable timeout and endpoint-specific error.
 
 ### Planned
 

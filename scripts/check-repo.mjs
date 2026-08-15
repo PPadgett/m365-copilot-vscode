@@ -2,10 +2,14 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { containsExactHttpUrl } from './security-policy-links.mjs';
+import { validatePolicy as validateRepositoryPolicySchema } from './lib/repository-audit.mjs';
+import {
+  parseWaiverEnd,
+  validatePolicy as validateScorecardPolicySchema
+} from './lib/scorecard-policy.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const failures = [];
-const policyDate = parseDate(process.env.REPOSITORY_POLICY_DATE ?? new Date().toISOString());
 
 const requiredFiles = [
   '.editorconfig',
@@ -44,11 +48,23 @@ const requiredFiles = [
   'scripts/apply-github-ruleset.mjs',
   'scripts/audit-github-rules.mjs',
   'scripts/check-codeql-sarif.mjs',
-  'scripts/check-scorecard-sarif.mjs',
+  'scripts/check-scorecard-results.mjs',
+  'scripts/lib/repository-audit-cli.mjs',
+  'scripts/lib/repository-audit.mjs',
+  'scripts/lib/scorecard-policy-cli.mjs',
+  'scripts/lib/scorecard-policy.mjs',
+  'scripts/lib/scorecard-sarif.mjs',
+  'scripts/scorecard-json-to-sarif.mjs',
   'scripts/security-policy-links.mjs',
   'test/codeql-sarif.test.cjs',
   'test/core.fuzz.test.js',
+  'test/gate-cli.test.cjs',
+  'test/repository-audit-timeout.test.cjs',
+  'test/repository-audit.test.cjs',
+  'test/scorecard-policy-cli.test.cjs',
   'test/scorecard-policy.test.cjs',
+  'test/scorecard-sarif.test.cjs',
+  'test/scorecard-workflow-evidence.test.cjs',
   'test/security-policy-links.test.cjs'
 ];
 
@@ -69,6 +85,9 @@ if (pkg.devDependencies?.['fast-check'] !== '4.9.0') fail('fast-check must be pi
 if (pkg.capabilities?.untrustedWorkspaces?.supported !== false) fail('The extension must be disabled in untrusted workspaces.');
 for (const name of ['verify', 'fuzz', 'sast:check', 'scorecard:check', 'repository:audit', 'ruleset:apply']) {
   if (typeof pkg.scripts?.[name] !== 'string') fail(`package.json is missing required script ${name}.`);
+}
+if (pkg.scripts?.['scorecard:check'] !== 'node scripts/check-scorecard-results.mjs') {
+  fail('package.json scorecard:check must use the exact-JSON Scorecard policy CLI.');
 }
 
 if (lock.lockfileVersion !== 3) fail('package-lock.json must use lockfileVersion 3.');
@@ -104,13 +123,20 @@ if (!/^  sast:\s*$/m.test(ci) || !/^    name: SAST\s*$/m.test(ci)) fail('CI must
 if (!/github\/codeql-action\/init@[0-9a-f]{40}/.test(ci) || !/github\/codeql-action\/analyze@[0-9a-f]{40}/.test(ci)) fail('CI SAST must use pinned CodeQL init and analyze actions.');
 if (!/upload:\s*never/.test(ci) || !/check-codeql-sarif\.mjs/.test(ci)) fail('CI SAST must retain SARIF locally and enforce the repository-owned CodeQL policy.');
 if (!/^      - sast\s*$/m.test(ci) || !/SAST_RESULT:\s*\$\{\{ needs\.sast\.result \}\}/.test(ci) || !/test "\$SAST_RESULT" = "success"/.test(ci)) fail('The stable Required check must fail when SAST fails.');
+
 const fuzz = await text('.github/workflows/fuzz.yml');
 if (!/\bpull_request\s*:/.test(fuzz) || !/\bschedule\s*:/.test(fuzz) || !/npm run fuzz/.test(fuzz) || !/^    name: Fuzz\s*$/m.test(fuzz)) fail('Fuzz workflow must run on pull requests and a schedule with a stable Fuzz check.');
+
 const repositoryWorkflow = await text('.github/workflows/repository-policy.yml');
 if (!/npm run repository:audit/.test(repositoryWorkflow) || !/^    name: Repository Policy\s*$/m.test(repositoryWorkflow)) fail('Repository policy workflow must audit live settings with a stable check name.');
-const scorecard = await text('.github/workflows/scorecard.yml');
-if (!/check-scorecard-sarif\.mjs/.test(scorecard) || !/^    name: Scorecard Policy\s*$/m.test(scorecard) || !/\bpull_request\s*:/.test(scorecard)) fail('Scorecard workflow must evaluate pull requests with a fail-closed Scorecard Policy check.');
-if (!/SCORECARD_POLICY_PROFILE:/.test(scorecard) || !/pull-request/.test(scorecard) || !/repository/.test(scorecard)) fail('Scorecard workflow must select pull-request and repository policy profiles explicitly.');
+if (!repositoryWorkflow.includes('GITHUB_TOKEN: ${{ secrets.REPOSITORY_POLICY_TOKEN }}') || !repositoryWorkflow.includes('REPOSITORY_POLICY_TOKEN: ${{ secrets.REPOSITORY_POLICY_TOKEN }}')) {
+  fail('Repository policy workflow must use the administration-read REPOSITORY_POLICY_TOKEN secret.');
+}
+if (repositoryWorkflow.includes('GITHUB_TOKEN: ${{ github.token }}')) {
+  fail('Repository policy workflow must not use the ordinary GITHUB_TOKEN for administrator-only evidence.');
+}
+
+validateScorecardWorkflow(await text('.github/workflows/scorecard.yml'));
 
 if (failures.length > 0) {
   console.error(`Repository policy failed with ${failures.length} finding(s):`);
@@ -120,7 +146,14 @@ if (failures.length > 0) {
 console.log('Repository policy checks passed.');
 
 function validateRepositoryPolicy(policy, desired) {
-  if (policy.version !== 1 || policy.defaultBranch !== 'main' || policy.rulesetName !== 'Protect main') fail('repository-policy.json must define version 1, main, and Protect main.');
+  try {
+    validateRepositoryPolicySchema(policy);
+  } catch (error) {
+    fail(error.message);
+    return;
+  }
+
+  if (policy.defaultBranch !== 'main' || policy.rulesetName !== 'Protect main') fail('repository-policy.json must define main and Protect main.');
   const requiredSettings = {
     allow_squash_merge: true,
     allow_merge_commit: false,
@@ -129,13 +162,13 @@ function validateRepositoryPolicy(policy, desired) {
     allow_update_branch: true
   };
   for (const [key, value] of Object.entries(requiredSettings)) {
-    if (policy.repository?.[key] !== value) fail(`repository-policy.json ${key} must be ${value}.`);
+    if (policy.repository[key] !== value) fail(`repository-policy.json ${key} must be ${value}.`);
   }
   if (policy.privateVulnerabilityReporting !== true) fail('Private vulnerability reporting must be required.');
 
   const copilotPolicy = policy.copilotCodeReview;
   if (
-    copilotPolicy?.enabled !== true ||
+    copilotPolicy.enabled !== true ||
     typeof copilotPolicy.reviewDraftPullRequests !== 'boolean' ||
     typeof copilotPolicy.reviewOnPush !== 'boolean'
   ) {
@@ -157,38 +190,154 @@ function validateRepositoryPolicy(policy, desired) {
   if (JSON.stringify(pr?.allowed_merge_methods) !== JSON.stringify(['squash'])) fail('The main ruleset must allow only squash merging.');
 
   const copilot = byType.get('copilot_code_review')?.parameters;
-  if (copilot?.review_draft_pull_requests !== copilotPolicy?.reviewDraftPullRequests) {
+  if (copilot?.review_draft_pull_requests !== copilotPolicy.reviewDraftPullRequests) {
     fail('Ruleset Copilot draft-review behavior must match repository-policy.json.');
   }
-  if (copilot?.review_on_push !== copilotPolicy?.reviewOnPush) {
+  if (copilot?.review_on_push !== copilotPolicy.reviewOnPush) {
     fail('Ruleset Copilot push-review behavior must match repository-policy.json.');
   }
 
   const status = byType.get('required_status_checks')?.parameters;
   if (status?.strict_required_status_checks_policy !== true) fail('Required status checks must be strict.');
   const actual = (status?.required_status_checks ?? []).map(check => check.context);
-  if (!sameSet(actual, policy.requiredStatusChecks ?? [])) fail('Ruleset required checks must exactly match repository-policy.json.');
+  if (!sameSet(actual, policy.requiredStatusChecks)) fail('Ruleset required checks must exactly match repository-policy.json.');
 }
 
 function validateScorecardPolicy(policy) {
-  if (policy.version !== 2 || policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) fail('Scorecard policy must use version 2, default to 10, and fail on unconfigured results.');
-  const ids = ['BranchProtectionID', 'CodeReviewID', 'SecurityPolicyID', 'FuzzingID', 'SASTID', 'MaintainedID', 'CIIBestPracticesID'];
-  for (const id of ids) if (!policy.checks?.[id]) fail(`Scorecard policy is missing ${id}.`);
+  try {
+    validateScorecardPolicySchema(policy);
+  } catch (error) {
+    fail(error.message);
+    return;
+  }
+
+  if (policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) {
+    fail('Scorecard policy must default to 10 and fail on unconfigured results.');
+  }
+  const ids = [
+    'BranchProtectionID',
+    'BinaryArtifactsID',
+    'DependencyUpdateToolID',
+    'LicenseID',
+    'PinnedDependenciesID',
+    'SecurityPolicyID',
+    'TokenPermissionsID',
+    'DangerousWorkflowID',
+    'VulnerabilitiesID',
+    'SASTID',
+    'FuzzingID',
+    'MaintainedID',
+    'CodeReviewID',
+    'CIIBestPracticesID',
+    'CITestsID',
+    'PackagingID',
+    'SignedReleasesID',
+    'ContributorsID'
+  ];
+  for (const id of ids) if (!policy.checks[id]) fail(`Scorecard policy is missing ${id}.`);
   const expectedProfiles = {
-    'pull-request': ['SecurityPolicyID', 'FuzzingID', 'SASTID'],
-    repository: ids
+    'pull-request': [
+      'BinaryArtifactsID',
+      'DependencyUpdateToolID',
+      'LicenseID',
+      'PinnedDependenciesID',
+      'SecurityPolicyID',
+      'TokenPermissionsID',
+      'DangerousWorkflowID',
+      'VulnerabilitiesID',
+      'SASTID',
+      'FuzzingID'
+    ],
+    repository: [
+      'BranchProtectionID',
+      'BinaryArtifactsID',
+      'DependencyUpdateToolID',
+      'LicenseID',
+      'PinnedDependenciesID',
+      'SecurityPolicyID',
+      'TokenPermissionsID',
+      'DangerousWorkflowID',
+      'VulnerabilitiesID',
+      'SASTID',
+      'FuzzingID',
+      'MaintainedID',
+      'CodeReviewID',
+      'CIIBestPracticesID',
+      'CITestsID',
+      'PackagingID',
+      'SignedReleasesID',
+      'ContributorsID'
+    ]
   };
   for (const [name, expected] of Object.entries(expectedProfiles)) {
-    if (!sameSet(policy.profiles?.[name] ?? [], expected)) fail(`Scorecard profile ${name} must contain the expected checks.`);
+    if (!sameSet(policy.profiles[name], expected)) fail(`Scorecard profile ${name} must contain the expected checks.`);
   }
-  for (const id of ['BranchProtectionID', 'SecurityPolicyID', 'FuzzingID', 'SASTID']) if (policy.checks?.[id]?.waiver) fail(`${id} must not be waived.`);
-  for (const [id, config] of Object.entries(policy.checks ?? {})) {
+  for (const id of ['BranchProtectionID', 'SecurityPolicyID', 'FuzzingID', 'SASTID', 'DangerousWorkflowID']) {
+    if (policy.checks[id]?.waiver) fail(`${id} must not be waived.`);
+  }
+  for (const [id, config] of Object.entries(policy.checks)) {
     const minimum = config.minimumScore ?? policy.defaultMinimumScore;
-    if (!Number.isFinite(minimum) || minimum < 0 || minimum > 10) fail(`${id} minimum score must be from 0 through 10.`);
+    if (!Number.isInteger(minimum) || minimum < 0 || minimum > 10) fail(`${id} minimum score must be an integer from 0 through 10.`);
+    if ('sarifMinimumScore' in config) fail(`${id} must not encode Scorecard SARIF-emission thresholds.`);
     if (!config.waiver) continue;
     if (typeof config.waiver.reason !== 'string' || config.waiver.reason.length < 20) fail(`${id} waiver needs a substantive reason.`);
-    const expiry = parseWaiver(config.waiver.expires, id);
-    if (expiry && policyDate > expiry) fail(`${id} waiver expired on ${config.waiver.expires}.`);
+    try {
+      parseWaiverEnd(config.waiver);
+    } catch (error) {
+      fail(`${id}: ${error.message}`);
+    }
+  }
+}
+
+function validateScorecardWorkflow(source) {
+  const jobs = new Map(extractJobs(source).map(job => [job.name, job]));
+  const analysis = jobs.get('analysis');
+  const policyJob = jobs.get('policy');
+  if (!analysis || !policyJob) {
+    fail('Scorecard workflow must define analysis and policy jobs.');
+    return;
+  }
+
+  const actionUses = source.match(/uses:\s*ossf\/scorecard-action@[0-9a-f]{40}/g) ?? [];
+  if (actionUses.length !== 1) fail('Scorecard workflow must execute the pinned Scorecard action exactly once.');
+
+  const analysisSteps = new Map(extractSteps(analysis.source).map(step => [step.name, step]));
+  const actionStep = analysisSteps.get('Run OpenSSF Scorecard once');
+  if (!actionStep) {
+    fail('Scorecard analysis job must contain the single-run Scorecard step.');
+  } else {
+    if (!/results_file:\s*results\.json/.test(actionStep.source) || !/results_format:\s*json/.test(actionStep.source) || !/publish_results:/.test(actionStep.source)) {
+      fail('Scorecard action must explicitly emit exact results.json for every event.');
+    }
+    if (/results_(?:file|format):.*github\.event_name/.test(actionStep.source)) {
+      fail('Scorecard action output format must not depend on event type.');
+    }
+  }
+
+  const conversion = analysisSteps.get('Generate advisory Scorecard SARIF from exact JSON');
+  if (!conversion || !conversion.source.includes("if: github.event_name != 'pull_request'") || !conversion.source.includes('scorecard-json-to-sarif.mjs') || !conversion.source.includes('results.json') || !conversion.source.includes('results.sarif')) {
+    fail('Repository Scorecard runs must derive advisory SARIF from the exact JSON result.');
+  }
+
+  const evidenceStep = analysisSteps.get('Upload Scorecard evidence');
+  if (!evidenceStep || !evidenceStep.source.includes('results.json') || !evidenceStep.source.includes('results.sarif')) {
+    fail('Scorecard evidence upload must retain exact JSON and advisory SARIF when available.');
+  }
+  const sarifStep = analysisSteps.get('Upload advisory Scorecard SARIF to code scanning');
+  if (!sarifStep || !sarifStep.source.includes("if: github.event_name != 'pull_request'") || !sarifStep.source.includes('continue-on-error: true') || !sarifStep.source.includes('results.sarif')) {
+    fail('Scorecard SARIF upload must be advisory and limited to non-pull-request runs.');
+  }
+
+  const policySteps = new Map(extractSteps(policyJob.source).map(step => [step.name, step]));
+  const evaluation = policySteps.get('Evaluate exact Scorecard results against policy');
+  if (!evaluation || !evaluation.source.includes('check-scorecard-results.mjs') || !evaluation.source.includes('results.json')) {
+    fail('Scorecard policy job must evaluate exact results.json with check-scorecard-results.mjs.');
+  }
+  if (evaluation?.source.includes('results.sarif')) {
+    fail('Scorecard policy evaluation must not use SARIF as a gating input.');
+  }
+  if (!source.includes('SCORECARD_POLICY_PROFILE:') || !source.includes('pull-request') || !source.includes('repository')) {
+    fail('Scorecard workflow must select pull-request and repository policy profiles explicitly.');
   }
 }
 
@@ -234,15 +383,25 @@ function extractJobs(source) {
   return jobs;
 }
 
+function extractSteps(jobSource) {
+  const lines = jobSource.split('\n');
+  const steps = [];
+  let current;
+  for (const line of lines) {
+    const match = line.match(/^      - name:\s*(.+?)\s*$/);
+    if (match) {
+      if (current) steps.push({ name: current.name, source: current.lines.join('\n') });
+      current = { name: match[1], lines: [line] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) steps.push({ name: current.name, source: current.lines.join('\n') });
+  return steps;
+}
+
 async function text(path) { return readFile(join(root, path), 'utf8'); }
 async function json(path) { return JSON.parse(await text(path)); }
 async function exists(path) { try { await stat(join(root, path)); return true; } catch { return false; } }
 function sameSet(a, b) { return a.length === b.length && new Set(a).size === a.length && a.every(value => b.includes(value)); }
 function fail(message) { failures.push(message); }
-function parseDate(value) { const date = new Date(value); if (Number.isNaN(date.getTime())) throw new TypeError('REPOSITORY_POLICY_DATE must be an ISO date.'); return date; }
-function parseWaiver(value, id) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) { fail(`${id} waiver expiry must use YYYY-MM-DD.`); return undefined; }
-  const date = new Date(`${value}T23:59:59.999Z`);
-  if (Number.isNaN(date.getTime())) { fail(`${id} waiver expiry is invalid.`); return undefined; }
-  return date;
-}
