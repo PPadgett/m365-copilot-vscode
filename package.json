@@ -79,7 +79,7 @@
     "ruleset:apply": "node scripts/apply-github-ruleset.mjs"
   },
   "devDependencies": {
-    "@types/vscode": "1.125.0",
+    "@types/vscode": "1.134.0",
     "fast-check": "4.9.0",
     "typescript": "7.0.2"
   },
