@@ -89,6 +89,15 @@ jobs:
       - name: Validate CycloneDX SBOM
         run: npm run validate:sbom
 
+      - name: Resolve SBOM path
+        id: sbom
+        shell: bash
+        run: |
+          files=(artifacts/*.cdx.json)
+          test "${#files[@]}" -eq 1
+          test -f "${files[0]}"
+          printf 'path=%s\n' "${files[0]}" >> "$GITHUB_OUTPUT"
+
       - name: Generate SHA-256 checksums
         run: npm run checksums
 
@@ -101,7 +110,7 @@ jobs:
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: artifacts/*.vsix
-          sbom-path: artifacts/*.cdx.json
+          sbom-path: ${{ steps.sbom.outputs.path }}
 
       - name: Publish GitHub release
         env:
