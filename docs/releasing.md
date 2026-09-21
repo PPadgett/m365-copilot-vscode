@@ -6,6 +6,8 @@ Releases are created from protected `main` by pushing a version tag. The release
 
 No Visual Studio Marketplace credential is used in the initial release design.
 
+GitHub releases are marked as previews while the Microsoft Graph Copilot Chat API remains in beta. VS Code 1.120 extension-host testing verifies activation, command registration, and model discovery without tenant credentials; live Graph authentication and responses require a licensed, consented work-account tenant.
+
 ## Prepare a release
 
 1. Update `package.json` using Semantic Versioning.
@@ -35,8 +37,8 @@ unzip -t artifacts/*.vsix
 ```bash
 git switch main
 git pull --ff-only
-git tag -s v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -s v0.1.1 -m "Release v0.1.1"
+git push origin v0.1.1
 ```
 
 The workflow fails when the tag and `package.json` version do not match.
@@ -73,7 +75,7 @@ shasum -a 256 --check SHA256SUMS
 On PowerShell:
 
 ```powershell
-Get-FileHash .\m365-copilot-graph-provider-0.1.0.vsix -Algorithm SHA256
+Get-FileHash .\m365-copilot-graph-provider-0.1.1.vsix -Algorithm SHA256
 Get-Content .\SHA256SUMS
 ```
 
@@ -82,7 +84,7 @@ Get-Content .\SHA256SUMS
 With GitHub CLI:
 
 ```bash
-gh attestation verify m365-copilot-graph-provider-0.1.0.vsix \
+gh attestation verify m365-copilot-graph-provider-0.1.1.vsix \
   --repo PPadgett/m365-copilot-vscode
 ```
 
@@ -93,8 +95,8 @@ For the SBOM attestation, use the predicate type shown by `gh attestation verify
 A VSIX is a ZIP archive:
 
 ```bash
-unzip -t m365-copilot-graph-provider-0.1.0.vsix
-unzip -l m365-copilot-graph-provider-0.1.0.vsix
+unzip -t m365-copilot-graph-provider-0.1.1.vsix
+unzip -l m365-copilot-graph-provider-0.1.1.vsix
 ```
 
 Expected runtime content is limited to the extension manifest, package metadata, compiled JavaScript, README, changelog, and license. Review the published performance and smoke reports and confirm they reference the same VSIX SHA-256 value as `SHA256SUMS`.

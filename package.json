@@ -2,7 +2,7 @@
   "name": "m365-copilot-graph-provider",
   "displayName": "Microsoft 365 Copilot Graph Provider",
   "description": "Use the Microsoft 365 Copilot Chat API as a custom language model in Visual Studio Code.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "ppadgett",
   "license": "MIT",
   "preview": true,
@@ -17,7 +17,7 @@
   },
   "engines": {
     "node": ">=22",
-    "vscode": "^1.131.0"
+    "vscode": "^1.120.0"
   },
   "categories": [
     "AI",
@@ -79,7 +79,7 @@
     "ruleset:apply": "node scripts/apply-github-ruleset.mjs"
   },
   "devDependencies": {
-    "@types/vscode": "1.125.0",
+    "@types/vscode": "1.120.0",
     "fast-check": "4.9.0",
     "typescript": "7.0.2"
   },
@@ -87,7 +87,8 @@
     "languageModelChatProviders": [
       {
         "vendor": "m365-copilot-graph",
-        "displayName": "Microsoft 365 Copilot (Graph)"
+        "displayName": "Microsoft 365 Copilot (Graph)",
+        "managementCommand": "m365Copilot.signIn"
       }
     ],
     "commands": [

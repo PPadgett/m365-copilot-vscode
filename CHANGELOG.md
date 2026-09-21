@@ -4,10 +4,18 @@ All notable changes to this project are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-21
+
+### Changed
+
+- Support VS Code 1.120 and expose Microsoft sign-in from the model provider management menu.
+- Run CI and security workflows on code changes or manual requests, with no recurring schedules.
+- Retain Actions artifacts, logs, and run history for three days.
+
 ### Added
 
 - Property-based fuzz tests for token, tool-call, response-boundary, time-zone, completion, and Graph-error parsing.
-- Pull-request and scheduled fuzz workflow with a stable required check.
+- Pull-request and manual fuzz workflow with a stable required check.
 - Fail-closed OpenSSF Scorecard policy evaluation with documented, expiring waivers and event-specific pull-request and repository profiles.
 - Repository-owned CodeQL analysis that retains SARIF as build evidence and fails the stable `Required` gate on every unsuppressed finding.
 - Committed GitHub repository-policy and branch-ruleset specifications plus live drift auditing.
@@ -15,7 +23,7 @@ All notable changes to this project are documented in this file. The project fol
 - Advanced QA pipeline with independent source/workflow lint, JUnit and LCOV evidence, mocked Microsoft Graph integration and API contract tests, and a stable required gate.
 - Cross-platform VSIX installation-layout smoke testing on Ubuntu, Windows, and macOS using the same immutable build artifact.
 - Deterministic performance and artifact-size budgets with machine-readable reports.
-- Scheduled curated mutation testing for security-sensitive boundaries.
+- On-demand curated mutation testing for security-sensitive boundaries.
 - Risk-based QA strategy documenting automated, manual, conditional, and non-applicable test categories.
 
 ### Security
@@ -49,5 +57,7 @@ All notable changes to this project are documented in this file. The project fol
 - CI, GitHub CodeQL default setup, dependency review, Gitleaks, OpenSSF Scorecard, and release attestation automation.
 - Open-source governance, security, support, and contribution documentation.
 
-[Unreleased]: https://github.com/PPadgett/m365-copilot-vscode/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/PPadgett/m365-copilot-vscode/compare/v0.1.1...HEAD
 [0.1.0]: https://github.com/PPadgett/m365-copilot-vscode/releases/tag/v0.1.0
+
+[0.1.1]: https://github.com/PPadgett/m365-copilot-vscode/releases/tag/v0.1.1
