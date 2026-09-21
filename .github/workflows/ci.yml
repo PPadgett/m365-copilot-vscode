@@ -7,8 +7,6 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: "17 8 * * 3"
   workflow_dispatch:
 
 permissions:
@@ -123,7 +121,7 @@ jobs:
           name: quality-node-${{ matrix.node }}-${{ github.sha }}
           path: artifacts/quality/node-${{ matrix.node }}/
           if-no-files-found: error
-          retention-days: 21
+          retention-days: 3
 
   sast:
     name: SAST
@@ -168,7 +166,7 @@ jobs:
             codeql-results/
             codeql-policy-report.json
           if-no-files-found: warn
-          retention-days: 21
+          retention-days: 3
 
   package:
     name: Package
@@ -232,7 +230,7 @@ jobs:
           name: m365-copilot-vscode-${{ github.sha }}
           path: artifacts/
           if-no-files-found: error
-          retention-days: 21
+          retention-days: 3
 
   compatibility:
     name: Compatibility (${{ matrix.os }})
@@ -277,7 +275,7 @@ jobs:
           name: compatibility-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
           path: artifacts/compatibility/
           if-no-files-found: error
-          retention-days: 21
+          retention-days: 3
 
   required:
     name: Required
