@@ -88,14 +88,14 @@ for (const marker of ['npm run verify', 'npm audit --audit-level=moderate', 'npm
 }
 
 const extended = await text('.github/workflows/extended-qa.yml');
-if (!/\bschedule\s*:/.test(extended) || !/name:\s*Mutation Testing/.test(extended) || !/npm run test:mutation/.test(extended)) {
-  fail('Extended QA must schedule curated mutation testing.');
+if (!/\bworkflow_dispatch\s*:/.test(extended) || /\bschedule\s*:/.test(extended) || !/name:\s*Mutation Testing/.test(extended) || !/npm run test:mutation/.test(extended)) {
+  fail('Extended QA must offer curated mutation testing on demand without scheduled runs.');
 }
 
 const strategy = await text('docs/qa-strategy.md');
 for (const heading of [
   '## Automated pull-request gates',
-  '## Scheduled extended QA',
+  '## On-demand extended QA',
   '## Manual and conditional validation',
   '## Not currently applicable'
 ]) {

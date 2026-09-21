@@ -105,7 +105,7 @@ if (!/github\/codeql-action\/init@[0-9a-f]{40}/.test(ci) || !/github\/codeql-act
 if (!/upload:\s*never/.test(ci) || !/check-codeql-sarif\.mjs/.test(ci)) fail('CI SAST must retain SARIF locally and enforce the repository-owned CodeQL policy.');
 if (!/^      - sast\s*$/m.test(ci) || !/SAST_RESULT:\s*\$\{\{ needs\.sast\.result \}\}/.test(ci) || !/test "\$SAST_RESULT" = "success"/.test(ci)) fail('The stable Required check must fail when SAST fails.');
 const fuzz = await text('.github/workflows/fuzz.yml');
-if (!/\bpull_request\s*:/.test(fuzz) || !/\bschedule\s*:/.test(fuzz) || !/npm run fuzz/.test(fuzz) || !/^    name: Fuzz\s*$/m.test(fuzz)) fail('Fuzz workflow must run on pull requests and a schedule with a stable Fuzz check.');
+if (!/\bpull_request\s*:/.test(fuzz) || !/\bworkflow_dispatch\s*:/.test(fuzz) || /\bschedule\s*:/.test(fuzz) || !/npm run fuzz/.test(fuzz) || !/^    name: Fuzz\s*$/m.test(fuzz)) fail('Fuzz workflow must run on pull requests and manual requests without a schedule, with a stable Fuzz check.');
 const repositoryWorkflow = await text('.github/workflows/repository-policy.yml');
 if (!/npm run repository:audit/.test(repositoryWorkflow) || !/^    name: Repository Policy\s*$/m.test(repositoryWorkflow)) fail('Repository policy workflow must audit live settings with a stable check name.');
 const scorecard = await text('.github/workflows/scorecard.yml');
