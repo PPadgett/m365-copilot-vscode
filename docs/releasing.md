@@ -6,6 +6,8 @@ Releases are created from protected `main` by pushing a version tag. The release
 
 No Visual Studio Marketplace credential is used in the initial release design.
 
+GitHub releases are marked as previews while the Microsoft Graph Copilot Chat API remains in beta. VS Code 1.120 extension-host testing verifies activation, command registration, and model discovery without tenant credentials; live Graph authentication and responses require a licensed, consented work-account tenant.
+
 ## Prepare a release
 
 1. Update `package.json` using Semantic Versioning.

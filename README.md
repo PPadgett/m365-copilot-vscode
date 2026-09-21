@@ -60,7 +60,7 @@ A Microsoft Entra administrator may need to approve the permissions. Application
 
 ## Install a release
 
-1. Download the `.vsix` and `SHA256SUMS` files from the matching GitHub release.
+1. Download the `.vsix` and `SHA256SUMS` files from the [v0.1.1 preview release](https://github.com/PPadgett/m365-copilot-vscode/releases/tag/v0.1.1).
 2. Verify the checksum.
 3. Install the extension:
 
