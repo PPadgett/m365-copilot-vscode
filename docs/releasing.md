@@ -43,6 +43,8 @@ git push origin v0.1.1
 
 The workflow fails when the tag and `package.json` version do not match.
 
+If the tag push did not start a release, run the **Release** workflow manually with the existing version tag. This builds that exact tag, verifies that its commit belongs to `main`, and runs the same release gates and attestations. It does not move or replace the tag.
+
 ## Release workflow security
 
 - Uses a protected `release` environment.

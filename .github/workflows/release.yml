@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish
+        required: true
+        type: string
   push:
     tags:
       - "v*.*.*"
@@ -19,6 +25,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     permissions:
       artifact-metadata: write
       attestations: write
@@ -28,6 +36,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -42,7 +51,10 @@ jobs:
         run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
 
       - name: Verify tag matches package version
-        run: node scripts/check-version.mjs "$GITHUB_REF_NAME"
+        run: |
+          node scripts/check-version.mjs "$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          git merge-base --is-ancestor HEAD origin/main
 
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
@@ -95,8 +107,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          gh release create "$GITHUB_REF_NAME" artifacts/*
+          gh release create "$RELEASE_TAG" artifacts/*
           --verify-tag
           --generate-notes
           --prerelease
-          --title "$GITHUB_REF_NAME"
+          --title "$RELEASE_TAG"
