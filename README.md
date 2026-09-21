@@ -44,7 +44,7 @@ The repository location does not need to be GitHub. GitHub is used only to devel
 
 ## Requirements
 
-- Visual Studio Code 1.131 or newer.
+- Visual Studio Code 1.120 or newer.
 - A Microsoft work or school account.
 - A Microsoft 365 Copilot entitlement that can use the Copilot Chat API.
 - Tenant consent for these delegated Microsoft Graph permissions:
@@ -65,7 +65,7 @@ A Microsoft Entra administrator may need to approve the permissions. Application
 3. Install the extension:
 
 ```bash
-code --install-extension m365-copilot-graph-provider-0.1.0.vsix
+code --install-extension m365-copilot-graph-provider-0.1.1.vsix
 ```
 
 You can also use **Extensions: Install from VSIX...** in the VS Code Command Palette.

@@ -35,8 +35,8 @@ unzip -t artifacts/*.vsix
 ```bash
 git switch main
 git pull --ff-only
-git tag -s v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -s v0.1.1 -m "Release v0.1.1"
+git push origin v0.1.1
 ```
 
 The workflow fails when the tag and `package.json` version do not match.
@@ -73,7 +73,7 @@ shasum -a 256 --check SHA256SUMS
 On PowerShell:
 
 ```powershell
-Get-FileHash .\m365-copilot-graph-provider-0.1.0.vsix -Algorithm SHA256
+Get-FileHash .\m365-copilot-graph-provider-0.1.1.vsix -Algorithm SHA256
 Get-Content .\SHA256SUMS
 ```
 
@@ -82,7 +82,7 @@ Get-Content .\SHA256SUMS
 With GitHub CLI:
 
 ```bash
-gh attestation verify m365-copilot-graph-provider-0.1.0.vsix \
+gh attestation verify m365-copilot-graph-provider-0.1.1.vsix \
   --repo PPadgett/m365-copilot-vscode
 ```
 
@@ -93,8 +93,8 @@ For the SBOM attestation, use the predicate type shown by `gh attestation verify
 A VSIX is a ZIP archive:
 
 ```bash
-unzip -t m365-copilot-graph-provider-0.1.0.vsix
-unzip -l m365-copilot-graph-provider-0.1.0.vsix
+unzip -t m365-copilot-graph-provider-0.1.1.vsix
+unzip -l m365-copilot-graph-provider-0.1.1.vsix
 ```
 
 Expected runtime content is limited to the extension manifest, package metadata, compiled JavaScript, README, changelog, and license. Review the published performance and smoke reports and confirm they reference the same VSIX SHA-256 value as `SHA256SUMS`.
