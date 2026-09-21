@@ -12,6 +12,7 @@ const sbom = JSON.parse(await readFile(sbomPath, 'utf8'));
 const applicationRef = `pkg:generic/${encodeURIComponent(packageJson.name)}@${packageJson.version}`;
 
 assert(sbom.bomFormat === 'CycloneDX', 'SBOM bomFormat must be CycloneDX.');
+assert(/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sbom.serialNumber), 'SBOM must have a UUID serialNumber for GitHub attestation.');
 assert(sbom.specVersion === '1.6', 'SBOM specVersion must be 1.6.');
 assert(sbom.version === 1, 'SBOM document version must be 1.');
 assert(!Number.isNaN(Date.parse(sbom.metadata?.timestamp)), 'SBOM metadata timestamp is invalid.');
