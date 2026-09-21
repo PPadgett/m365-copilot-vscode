@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,6 +45,7 @@ for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
 const timestamp = sourceDate();
 const bom = {
   bomFormat: 'CycloneDX',
+  serialNumber: `urn:uuid:${randomUUID()}`,
   specVersion: '1.6',
   version: 1,
   metadata: {

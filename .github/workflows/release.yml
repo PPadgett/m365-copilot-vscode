@@ -86,6 +86,22 @@ jobs:
       - name: Generate CycloneDX SBOM
         run: npm run sbom
 
+      # Older tags predate the document identifier required by actions/attest.
+      - name: Ensure SBOM document identity
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+          import { randomUUID } from 'node:crypto';
+          const files = readdirSync('artifacts').filter(name => name.endsWith('.cdx.json'));
+          if (files.length !== 1) throw new Error('Expected exactly one SBOM');
+          const path = `artifacts/${files[0]}`;
+          const sbom = JSON.parse(readFileSync(path, 'utf8'));
+          sbom.serialNumber ??= `urn:uuid:${randomUUID()}`;
+          if (!/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sbom.serialNumber)) throw new Error('Invalid SBOM serialNumber');
+          writeFileSync(path, `${JSON.stringify(sbom, null, 2)}\n`);
+          NODE
+
       - name: Validate CycloneDX SBOM
         run: npm run validate:sbom
 
