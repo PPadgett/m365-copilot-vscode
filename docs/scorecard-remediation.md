@@ -59,6 +59,18 @@ The old [run 35629145572](https://github.com/PPadgett/m365-copilot-vscode/action
 
 The project and existing VSIX do not expire at this waiver deadline. Main's local schema gate previously failed on any retained expired waiver; this fix removes that date-only outage while preserving enforcement against evidence. Until this PR is reviewed and merged by a maintainer, main retains that behavior. No Marketplace publication or live tenant validation is implied.
 
+## Fresh PR scan diagnosis
+
+The [September 30 PR scan](https://github.com/PPadgett/m365-copilot-vscode/actions/runs/36786075585) scans `file://.` with repository commit `unknown`, using the action's local-file mode. The [snapshot](evidence/scorecard-pr21-2026-09-30.json) records License 9 and Packaging -1. Diagnostic `details` are now preserved in policy reports so these warnings remain inspectable without guessing from the short reason.
+
+License 9 is an evidence limitation, not an observed licensing regression. The [pinned License implementation](https://github.com/ossf/scorecard/blob/c395761df6afe1a69e476bc60a013a94bcbc153f/checks/raw/license.go) uses the platform API when available; otherwise it infers an SPDX identifier from the filename and does not inspect license contents. Bare `LICENSE` provides no identifier in that fallback. The [evaluation](https://github.com/ossf/scorecard/blob/c395761df6afe1a69e476bc60a013a94bcbc153f/checks/evaluation/license.go) gives 9 for existence and one additional point for approved-license recognition. GitHub's [repository license API](https://api.github.com/repos/PPadgett/m365-copilot-vscode/license) identifies the unchanged main file as MIT, and main's historical repository scan scores 10. No license bytes, obligations, or filename are changed to manipulate detection.
+
+Packaging -1 is an unsupported workflow-detection case. The [pinned matcher](https://github.com/ossf/scorecard/blob/c395761df6afe1a69e476bc60a013a94bcbc153f/checks/fileparser/github_workflow.go) recognizes specific ecosystem publishing patterns, not this repository's custom VSIX build followed by `gh release create`. The [raw check](https://github.com/ossf/scorecard/blob/c395761df6afe1a69e476bc60a013a94bcbc153f/checks/raw/github/packaging.go) therefore finds no candidate. Main and PR #21 have identical license and release workflow files; main's historical Packaging result is also -1. The actual v0.1.1 GitHub prerelease and successful package/compatibility jobs provide distribution evidence, but are not a numeric Scorecard pass. Marketplace distribution remains a separate product/publication decision.
+
+The policy still fails these results. No floor reduction, waiver, additional publishing action, credential, dummy package publication, or guessed score is introduced. The owner can independently review a CII-only removal on unchanged version-2 policy, then decide whether to pursue upstream local-license/VSIX matcher support or authorize a separately reviewed policy treatment of unsupported evidence. Neither decision is silently implemented in this repair.
+
+PR #21 had no review submissions or inline comments when checked on September 30. Its GitHub security AI job failed before producing findings because its configured model was unavailable; repository-owned SAST and CodeQL passed. Fresh independent human review remains required.
+
 ## Apply the GitHub ruleset
 
 The default workflow token intentionally cannot administer repository settings. A repository administrator can use the GitHub CLI browser login to acquire a local credential and run:

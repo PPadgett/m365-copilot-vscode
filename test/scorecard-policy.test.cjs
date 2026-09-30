@@ -308,6 +308,31 @@ test('legacy SARIF gate refuses ambiguous evidence', () => {
   assert.match(result.stderr, /SARIF is advisory only/);
 });
 
+test('scanner diagnostic details survive evaluation without changing scores or failures', async () => {
+  const evidence = JSON.parse(readFileSync(join(root,
+    'docs/evidence/scorecard-pr21-2026-09-30.json'), 'utf8'));
+  const report = await run(evidence, committedPolicy, 'pull-request', '2026-09-30T22:31:43Z');
+  assert.deepEqual(report.checks.filter(entry => entry.status === 'fail').map(entry => entry.ruleId),
+    ['LicenseID', 'PackagingID']);
+  for (const name of ['License', 'Packaging']) {
+    const entry = report.checks.find(candidate => candidate.name === name);
+    assert.deepEqual(entry.details, evidence.checks.find(check => check.name === name).details);
+  }
+});
+
+test('malformed diagnostic details are rejected; null details remain valid', async () => {
+  for (const details of [{ warning: 'bad' }, [123]]) {
+    const item = check('Security-Policy', 10);
+    item.details = details;
+    await assert.rejects(run(exact([item]), policyFor(['SecurityPolicyID'])), /invalid details/);
+  }
+  const item = check('Security-Policy', 10);
+  item.details = null;
+  const report = await run(exact([item]), policyFor(['SecurityPolicyID']));
+  assert.equal(report.passed, true);
+  assert.deepEqual(report.checks[0].details, []);
+});
+
 test('local schema gate remains valid after all waiver dates; evidence gate enforces expiry', () => {
   const { spawnSync } = require('node:child_process');
   const result = spawnSync(process.execPath, [join(root, 'scripts/check-repo.mjs')], {

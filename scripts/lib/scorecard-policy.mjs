@@ -178,6 +178,10 @@ export function collectExactScorecardResults(document) {
         `The exact Scorecard JSON contained no reason for ${check.name}.`
       );
     }
+    if (check.details != null && (!Array.isArray(check.details)
+      || check.details.some(detail => typeof detail !== 'string'))) {
+      throw new TypeError(`The exact Scorecard JSON contained invalid details for ${check.name}.`);
+    }
     if (
       check.documentation?.url !== undefined
       && typeof check.documentation.url !== 'string'
@@ -197,6 +201,7 @@ export function collectExactScorecardResults(document) {
       name: check.name,
       score: check.score,
       reason: check.reason.trim(),
+      details: [...(check.details ?? [])],
       documentationUrl: check.documentation?.url || null,
       documentationShort:
         typeof check.documentation?.short === 'string'
@@ -408,6 +413,7 @@ function entryFromResult({
     minimumScore,
     status,
     message: result.reason,
+    details: result.details,
     documentationUrl: result.documentationUrl,
     waiver
   };
