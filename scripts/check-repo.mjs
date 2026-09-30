@@ -2,10 +2,10 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { containsExactHttpUrl } from './security-policy-links.mjs';
+import { validatePolicy as validateScorecardSchema, parseWaiverEnd } from './lib/scorecard-policy.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const failures = [];
-const policyDate = parseDate(process.env.REPOSITORY_POLICY_DATE ?? new Date().toISOString());
 
 const requiredFiles = [
   '.editorconfig',
@@ -44,7 +44,11 @@ const requiredFiles = [
   'scripts/apply-github-ruleset.mjs',
   'scripts/audit-github-rules.mjs',
   'scripts/check-codeql-sarif.mjs',
-  'scripts/check-scorecard-sarif.mjs',
+  'scripts/check-scorecard-results.mjs',
+  'scripts/lib/scorecard-policy.mjs',
+  'scripts/lib/scorecard-policy-cli.mjs',
+  'scripts/lib/scorecard-sarif.mjs',
+  'scripts/scorecard-json-to-sarif.mjs',
   'scripts/security-policy-links.mjs',
   'test/codeql-sarif.test.cjs',
   'test/core.fuzz.test.js',
@@ -109,7 +113,7 @@ if (!/\bpull_request\s*:/.test(fuzz) || !/\bworkflow_dispatch\s*:/.test(fuzz) ||
 const repositoryWorkflow = await text('.github/workflows/repository-policy.yml');
 if (!/npm run repository:audit/.test(repositoryWorkflow) || !/^    name: Repository Policy\s*$/m.test(repositoryWorkflow)) fail('Repository policy workflow must audit live settings with a stable check name.');
 const scorecard = await text('.github/workflows/scorecard.yml');
-if (!/check-scorecard-sarif\.mjs/.test(scorecard) || !/^    name: Scorecard Policy\s*$/m.test(scorecard) || !/\bpull_request\s*:/.test(scorecard)) fail('Scorecard workflow must evaluate pull requests with a fail-closed Scorecard Policy check.');
+if (!/check-scorecard-results\.mjs/.test(scorecard) || !/results_format:\s*json/.test(scorecard) || !/^    name: Scorecard Policy\s*$/m.test(scorecard) || !/\bpull_request\s*:/.test(scorecard)) fail('Scorecard workflow must evaluate exact JSON with a fail-closed Scorecard Policy check.');
 if (!/SCORECARD_POLICY_PROFILE:/.test(scorecard) || !/pull-request/.test(scorecard) || !/repository/.test(scorecard)) fail('Scorecard workflow must select pull-request and repository policy profiles explicitly.');
 
 if (failures.length > 0) {
@@ -171,7 +175,8 @@ function validateRepositoryPolicy(policy, desired) {
 }
 
 function validateScorecardPolicy(policy) {
-  if (policy.version !== 2 || policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) fail('Scorecard policy must use version 2, default to 10, and fail on unconfigured results.');
+  try { validateScorecardSchema(policy); } catch (error) { fail(error.message); return; }
+  if (policy.version !== 3 || policy.defaultMinimumScore !== 10 || policy.failOnUnconfiguredResults !== true) fail('Scorecard policy must use version 3, default to 10, and fail on unconfigured results.');
   const ids = ['BranchProtectionID', 'CodeReviewID', 'SecurityPolicyID', 'FuzzingID', 'SASTID', 'MaintainedID', 'CIIBestPracticesID'];
   for (const id of ids) if (!policy.checks?.[id]) fail(`Scorecard policy is missing ${id}.`);
   const expectedProfiles = {
@@ -187,8 +192,9 @@ function validateScorecardPolicy(policy) {
     if (!Number.isFinite(minimum) || minimum < 0 || minimum > 10) fail(`${id} minimum score must be from 0 through 10.`);
     if (!config.waiver) continue;
     if (typeof config.waiver.reason !== 'string' || config.waiver.reason.length < 20) fail(`${id} waiver needs a substantive reason.`);
-    const expiry = parseWaiver(config.waiver.expires, id);
-    if (expiry && policyDate > expiry) fail(`${id} waiver expired on ${config.waiver.expires}.`);
+    // Schema validation cannot determine whether a waiver is still load-bearing.
+    // The exact-evidence gate enforces expiry for low, missing, or inconclusive results.
+    try { parseWaiverEnd(config.waiver); } catch (error) { fail(`${id}: ${error.message}`); }
   }
 }
 
@@ -239,10 +245,3 @@ async function json(path) { return JSON.parse(await text(path)); }
 async function exists(path) { try { await stat(join(root, path)); return true; } catch { return false; } }
 function sameSet(a, b) { return a.length === b.length && new Set(a).size === a.length && a.every(value => b.includes(value)); }
 function fail(message) { failures.push(message); }
-function parseDate(value) { const date = new Date(value); if (Number.isNaN(date.getTime())) throw new TypeError('REPOSITORY_POLICY_DATE must be an ISO date.'); return date; }
-function parseWaiver(value, id) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) { fail(`${id} waiver expiry must use YYYY-MM-DD.`); return undefined; }
-  const date = new Date(`${value}T23:59:59.999Z`);
-  if (Number.isNaN(date.getTime())) { fail(`${id} waiver expiry is invalid.`); return undefined; }
-  return date;
-}
