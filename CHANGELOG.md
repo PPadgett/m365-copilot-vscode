@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The project fol
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove the obsolete CII waiver after public Scorecard evidence on the current main commit confirms score 2; retain the minimum of 2 and fail on missing or regressed evidence.
+- Evaluate exact Scorecard JSON once per event, retaining SARIF only as advisory code-scanning output. Reject duplicate, invalid, missing, and inconclusive scores instead of inferring 10 from omitted SARIF findings.
+- Enforce waiver expiry against load-bearing evidence, including the midnight UTC boundary; reject impossible calendar dates during local schema validation.
+
 ## [0.1.1] - 2026-09-21
 
 ### Changed

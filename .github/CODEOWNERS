@@ -17,6 +17,11 @@
 /scripts/check-repo.mjs @PPadgett @randykwheeler
 /scripts/check-reproducible.mjs @PPadgett @randykwheeler
 /scripts/check-scorecard-sarif.mjs @PPadgett @randykwheeler
+/scripts/check-scorecard-results.mjs @PPadgett @randykwheeler
+/scripts/lib/scorecard-policy.mjs @PPadgett @randykwheeler
+/scripts/lib/scorecard-policy-cli.mjs @PPadgett @randykwheeler
+/scripts/lib/scorecard-sarif.mjs @PPadgett @randykwheeler
+/scripts/scorecard-json-to-sarif.mjs @PPadgett @randykwheeler
 /scripts/validate-vsix.mjs @PPadgett @randykwheeler
 /scripts/validate-sbom.mjs @PPadgett @randykwheeler
 /package-lock.json @PPadgett @randykwheeler
