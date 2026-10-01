@@ -2,6 +2,9 @@
 * @PPadgett @randykwheeler
 
 # Security- and release-sensitive paths
+/scripts/historical-evidence.mjs @PPadgett @randykwheeler
+/scripts/lib/historical-evidence.mjs @PPadgett @randykwheeler
+/docs/ci-evidence.md @PPadgett @randykwheeler
 /.github/workflows/ @PPadgett @randykwheeler
 /.github/dependabot.yml @PPadgett @randykwheeler
 /.github/copilot-instructions.md @PPadgett @randykwheeler

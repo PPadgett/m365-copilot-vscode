@@ -1,0 +1,79 @@
+{
+  "evaluatedAt": "2026-10-01T14:24:14.393Z",
+  "sample": [
+    {
+      "pr": 22,
+      "sha": "85d0aa21454a05c917387761167ee430c7205fb6",
+      "mergedAt": "2026-10-01T13:09:20Z",
+      "qualified": true
+    },
+    {
+      "pr": 20,
+      "sha": "3d2850cb0a3b226ae6b5012f9d4ae6b0d24e7fe8",
+      "mergedAt": "2026-09-21T16:59:46Z",
+      "qualified": true
+    },
+    {
+      "pr": 19,
+      "sha": "f14b28cef4169375f9de066fe1d99753f7920a73",
+      "mergedAt": "2026-09-21T16:55:23Z",
+      "qualified": true
+    },
+    {
+      "pr": 18,
+      "sha": "ac753bdd7e67c817a7869022c6ef195178d71eca",
+      "mergedAt": "2026-09-21T16:51:19Z",
+      "qualified": true
+    },
+    {
+      "pr": 17,
+      "sha": "09818de513e8c9eb4eea89a66c1f363ffcd0a4b8",
+      "mergedAt": "2026-09-21T16:43:24Z",
+      "qualified": true
+    },
+    {
+      "pr": 5,
+      "sha": "f70b9856cd4227e1eb08c926224f3ace58a5b126",
+      "mergedAt": "2026-08-13T03:52:52Z",
+      "qualified": false
+    },
+    {
+      "pr": 2,
+      "sha": "99ceaf674dd9ca7e5dd58d8d8e54aa78f49c41b7",
+      "mergedAt": "2026-08-12T02:11:55Z",
+      "qualified": false
+    },
+    {
+      "pr": 1,
+      "sha": "c2e711bbbd3f4fd51ce62ecce1ce1ffe35f82272",
+      "mergedAt": "2026-08-12T02:05:39Z",
+      "qualified": false
+    }
+  ],
+  "missing": [
+    {
+      "pr": 5,
+      "sha": "f70b9856cd4227e1eb08c926224f3ace58a5b126",
+      "mergedAt": "2026-08-13T03:52:52Z",
+      "qualified": false
+    },
+    {
+      "pr": 2,
+      "sha": "99ceaf674dd9ca7e5dd58d8d8e54aa78f49c41b7",
+      "mergedAt": "2026-08-12T02:11:55Z",
+      "qualified": false
+    },
+    {
+      "pr": 1,
+      "sha": "c2e711bbbd3f4fd51ce62ecce1ce1ffe35f82272",
+      "mergedAt": "2026-08-12T02:05:39Z",
+      "qualified": false
+    }
+  ],
+  "retention": {
+    "days": 3,
+    "maximum_allowed_days": 90
+  },
+  "passed": false,
+  "note": "Recent 30-commit approximation; authoritative Scorecard may select a different sample."
+}

@@ -1,0 +1,140 @@
+name: Historical CI validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_statuses:
+        description: Explicit approval to attach truthful current-dated results to the three allowlisted old heads
+        type: boolean
+        default: false
+      retest:
+        description: Re-test allowlisted heads even when qualifying CI evidence already exists
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: historical-ci-validation
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Select allowlisted missing evidence
+    if: github.repository == 'PPadgett/m365-copilot-vscode' && github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - name: Check out trusted controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Select only approved historical heads lacking evidence
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RETEST: ${{ inputs.retest }}
+        run: node scripts/historical-evidence.mjs plan
+
+  historical:
+    name: Historical tests PR ${{ matrix.pr }} (${{ matrix.sha }})
+    needs: plan
+    if: needs.plan.result == 'success' && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Check out trusted verification code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact PR 1 source
+        if: matrix.pr == 1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: c2e711bbbd3f4fd51ce62ecce1ce1ffe35f82272
+          path: historical
+          persist-credentials: false
+      - name: Check out exact PR 2 source
+        if: matrix.pr == 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 99ceaf674dd9ca7e5dd58d8d8e54aa78f49c41b7
+          path: historical
+          persist-credentials: false
+      - name: Check out exact PR 5 source
+        if: matrix.pr == 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: f70b9856cd4227e1eb08c926224f3ace58a5b126
+          path: historical
+          persist-credentials: false
+      - name: Verify exact historical checkout
+        env:
+          TARGET_PR: ${{ matrix.pr }}
+          TARGET_SHA: ${{ matrix.sha }}
+        run: node trusted/scripts/historical-evidence.mjs verify-checkout "$TARGET_PR" "$TARGET_SHA" historical
+      - name: Install locked dependencies without scripts
+        run: |
+          mkdir -p "$RUNNER_TEMP/historical-docker"
+          docker --config "$RUNNER_TEMP/historical-docker" run --rm --pull=always --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=2g --cpus=2 --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env NPM_CONFIG_CACHE=/tmp/npm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/historical,target=/work" --workdir /work \
+            node:22-bookworm-slim@sha256:25330af3531fb5e23318554a0aa911125b6e91b1b777edf7655501d207c067a2 \
+            sh -c 'npm ci --ignore-scripts --cache /tmp/npm'
+      - name: Run genuine historical build and tests
+        run: |
+          docker --config "$RUNNER_TEMP/historical-docker" run --rm --pull=never --platform linux/amd64 \
+            --network=none --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=2g --cpus=2 --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env NPM_CONFIG_CACHE=/tmp/npm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/historical,target=/work" --workdir /work \
+            node:22-bookworm-slim@sha256:25330af3531fb5e23318554a0aa911125b6e91b1b777edf7655501d207c067a2 \
+            sh -c 'npm test'
+
+  report:
+    name: Publish approved retrospective results
+    needs:
+      - plan
+      - historical
+    if: >-
+      always() && github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' && github.run_attempt == 1 &&
+      inputs.publish_statuses && needs.plan.result == 'success' &&
+      needs.historical.result == 'success' && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+    steps:
+      - name: Check out trusted reporter only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate runner evidence and publish current-dated statuses
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PUBLISH_STATUSES: ${{ inputs.publish_statuses }}
+          SELECTED_TARGETS: ${{ needs.plan.outputs.matrix }}
+        run: node scripts/historical-evidence.mjs report

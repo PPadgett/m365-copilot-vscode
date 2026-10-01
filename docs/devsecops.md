@@ -1,5 +1,7 @@
 # DevSecOps Pipeline
 
+See [CI evidence maintenance](ci-evidence.md) for bounded retention, read-only weekly health checks and reviewed retrospective testing of explicitly allowlisted historical heads. Status publication remains a separate manual approval.
+
 ## Objectives
 
 The pipeline is designed to make every change reviewable, every build repeatable, every quality claim evidenced, and every release traceable to protected source. Controls are split between committed automation and repository settings that must be enabled after the GitHub repository exists.
