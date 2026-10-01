@@ -1,0 +1,117 @@
+name: Historical CI validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_statuses:
+        description: Explicit approval to attach truthful current-dated results to the three allowlisted old heads
+        type: boolean
+        default: false
+      retest:
+        description: Re-test allowlisted heads even when qualifying CI evidence already exists
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: historical-ci-validation
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Select allowlisted missing evidence
+    if: github.repository == 'PPadgett/m365-copilot-vscode' && github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - name: Check out trusted controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Select only approved historical heads lacking evidence
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RETEST: ${{ inputs.retest }}
+        run: node scripts/historical-evidence.mjs plan
+
+  historical:
+    name: Historical tests PR ${{ matrix.pr }} (${{ matrix.sha }})
+    needs: plan
+    if: needs.plan.result == 'success' && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Check out trusted verification code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact historical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ matrix.sha }}
+          path: historical
+          persist-credentials: false
+      - name: Verify exact historical checkout
+        env:
+          TARGET_PR: ${{ matrix.pr }}
+          TARGET_SHA: ${{ matrix.sha }}
+        run: node trusted/scripts/historical-evidence.mjs verify-checkout "$TARGET_PR" "$TARGET_SHA" historical
+      - name: Set up Node without shared cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install locked dependencies without scripts
+        working-directory: historical
+        run: npm ci --ignore-scripts --cache "$RUNNER_TEMP/historical-npm"
+      - name: Run genuine historical build and tests
+        working-directory: historical
+        run: npm test
+
+  report:
+    name: Publish approved retrospective results
+    needs:
+      - plan
+      - historical
+    if: >-
+      always() && github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' && github.run_attempt == 1 &&
+      inputs.publish_statuses && needs.plan.result == 'success' &&
+      needs.historical.result == 'success' && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+    steps:
+      - name: Check out trusted reporter only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate runner evidence and publish current-dated statuses
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PUBLISH_STATUSES: ${{ inputs.publish_statuses }}
+          SELECTED_TARGETS: ${{ needs.plan.outputs.matrix }}
+        run: node scripts/historical-evidence.mjs report

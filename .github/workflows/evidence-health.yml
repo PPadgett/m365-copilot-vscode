@@ -1,0 +1,52 @@
+name: CI evidence health
+
+on:
+  schedule:
+    - cron: '41 9 * * 1'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/historical-ci.yml'
+      - '.github/workflows/evidence-health.yml'
+      - 'scripts/historical-evidence.mjs'
+      - 'scripts/lib/historical-evidence.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-evidence-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: CI evidence health
+    if: github.repository == 'PPadgett/m365-copilot-vscode' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      checks: read
+      statuses: read
+      pull-requests: read
+    steps:
+      - name: Check out read-only evidence controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Inspect recent merged-head evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/historical-evidence.mjs health
+      - name: Retain compact diagnostic report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: CI-evidence-health-${{ github.run_id }}
+          path: evidence-health-report.json
+          if-no-files-found: warn
+          retention-days: 3

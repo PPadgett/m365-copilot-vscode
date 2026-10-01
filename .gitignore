@@ -28,6 +28,7 @@ npm-debug.log*
 
 # Security scanner output
 results.sarif
+evidence-health-report.json
 scorecard-policy-report.json
 codeql-results/
 codeql-policy-report.json

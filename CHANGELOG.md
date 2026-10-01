@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The project fol
 
 ## [Unreleased]
 
+### Added
+
+- Read-only weekly CI evidence-health detection and an exact-SHA historical test workflow for merged PR heads 1, 2 and 5, with a separately opted-in trusted reporter for truthful current-dated test statuses.
+
 ## [0.1.1] - 2026-09-21
 
 ### Changed
