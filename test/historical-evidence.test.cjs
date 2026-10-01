@@ -106,7 +106,10 @@ test('API transport rejects redirects, repository escape and malformed pages; ha
   let options;
   const api = githubApi('test-token', async (url, args) => {
     options = args;
-    assert.match(url, /^https:\/\/api.github.com\/repos\/PPadgett\/m365-copilot-vscode\//);
+    const destination = new URL(url);
+    assert.equal(destination.protocol, 'https:');
+    assert.equal(destination.hostname, 'api.github.com');
+    assert.ok(destination.pathname.startsWith('/repos/PPadgett/m365-copilot-vscode/'));
     return { ok: true, json: async () => ({ wrong: [] }) };
   });
   await assert.rejects(api.request('/repos/other/project/statuses/a'), /outside repository/);
@@ -139,9 +142,13 @@ test('workflow privilege boundary: historical code read-only; writes require man
   const historical = workflow.slice(workflow.indexOf('  historical:'), workflow.indexOf('  report:'));
   const reporter = workflow.slice(workflow.indexOf('  report:'));
   assert.doesNotMatch(historical, /statuses: write|secrets\.|id-token:|cache: npm|actions\/cache/);
-  assert.match(historical, /package-manager-cache: false/);
-  assert.match(historical, /npm ci --ignore-scripts/);
-  assert.match(historical, /run: npm test/);
+  assert.doesNotMatch(historical, /actions\/setup-node|ref: \$\{\{ matrix\.sha/);
+  assert.match(historical, /sh -c 'npm ci --ignore-scripts --cache \/tmp\/npm'/);
+  assert.match(historical, /sh -c 'npm test'/);
+  assert.match(historical, /--network=none/);
+  assert.match(historical, /--cap-drop=ALL --security-opt=no-new-privileges/);
+  assert.match(historical, /node:22-bookworm-slim@sha256:[0-9a-f]{64}/);
+  assert.doesNotMatch(historical, /--privileged|docker.sock|--pid=host|--network=host|--env-file|--env GITHUB|--env ACTIONS/);
   assert.match(reporter, /inputs.publish_statuses/);
   assert.match(reporter, /needs.historical.result == 'success'/);
   assert.match(reporter, /github.run_attempt == 1/);

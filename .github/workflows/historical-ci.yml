@@ -64,10 +64,25 @@ jobs:
           ref: ${{ github.sha }}
           path: trusted
           persist-credentials: false
-      - name: Check out exact historical source
+      - name: Check out exact PR 1 source
+        if: matrix.pr == 1
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ matrix.sha }}
+          ref: c2e711bbbd3f4fd51ce62ecce1ce1ffe35f82272
+          path: historical
+          persist-credentials: false
+      - name: Check out exact PR 2 source
+        if: matrix.pr == 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 99ceaf674dd9ca7e5dd58d8d8e54aa78f49c41b7
+          path: historical
+          persist-credentials: false
+      - name: Check out exact PR 5 source
+        if: matrix.pr == 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: f70b9856cd4227e1eb08c926224f3ace58a5b126
           path: historical
           persist-credentials: false
       - name: Verify exact historical checkout
@@ -75,17 +90,25 @@ jobs:
           TARGET_PR: ${{ matrix.pr }}
           TARGET_SHA: ${{ matrix.sha }}
         run: node trusted/scripts/historical-evidence.mjs verify-checkout "$TARGET_PR" "$TARGET_SHA" historical
-      - name: Set up Node without shared cache
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: '22'
-          package-manager-cache: false
       - name: Install locked dependencies without scripts
-        working-directory: historical
-        run: npm ci --ignore-scripts --cache "$RUNNER_TEMP/historical-npm"
+        run: |
+          mkdir -p "$RUNNER_TEMP/historical-docker"
+          docker --config "$RUNNER_TEMP/historical-docker" run --rm --pull=always --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=2g --cpus=2 --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env HOME=/tmp \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/historical,target=/work" --workdir /work \
+            node:22-bookworm-slim@sha256:25330af3531fb5e23318554a0aa911125b6e91b1b777edf7655501d207c067a2 \
+            sh -c 'npm ci --ignore-scripts --cache /tmp/npm'
       - name: Run genuine historical build and tests
-        working-directory: historical
-        run: npm test
+        run: |
+          docker --config "$RUNNER_TEMP/historical-docker" run --rm --pull=never --platform linux/amd64 \
+            --network=none --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=2g --cpus=2 --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env HOME=/tmp \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/historical,target=/work" --workdir /work \
+            node:22-bookworm-slim@sha256:25330af3531fb5e23318554a0aa911125b6e91b1b777edf7655501d207c067a2 \
+            sh -c 'npm test'
 
   report:
     name: Publish approved retrospective results
