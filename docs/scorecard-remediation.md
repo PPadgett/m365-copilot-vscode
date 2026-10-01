@@ -12,7 +12,15 @@ This project treats OpenSSF Scorecard as an enforceable control, not only as a d
 | SAST | A repository-owned CodeQL job runs without uploading, retains SARIF, and rejects every unsuppressed result. GitHub CodeQL default setup remains enabled independently. | The `SAST` job is included in the stable `Required` CI gate. Scorecard must detect the committed CodeQL workflow and score 10. |
 | Code-Review | Future changes require a human approval, CODEOWNERS review, and approval of the latest push. | Tracked in issue #3. A time-limited waiver expires October 15, 2026; automation cannot substitute for an actual human review history. |
 | Maintained | Scorecard intentionally assigns zero to a repository younger than 90 days. | A time-limited waiver expires November 10, 2026, after the repository reaches 90 days on November 9, 2026. |
-| CII-Best-Practices | The maintainer must register the project with the OpenSSF Best Practices program and complete its questionnaire accurately. | Tracked in issue #4. A time-limited waiver expires September 30, 2026. |
+| CII-Best-Practices | The maintainer must register the project with the OpenSSF Best Practices program and complete its questionnaire accurately. | Project [14072](https://www.bestpractices.dev/en/projects/14072/baseline-1) is in progress. Exact public Scorecard evidence scores CII 2, meeting the unchanged minimum of 2. The obsolete September 30 waiver is removed. |
+
+## CII-only deadline repair
+
+Public [Scorecard evidence](https://api.securityscorecards.dev/projects/github.com/PPadgett/m365-copilot-vscode), retrieved September 30, 2026, is dated September 21 at 17:00:01 UTC and identifies current main commit `61bc96b192f1ef8b6964481418d3e83d7200bdab`. It reports CII-Best-Practices 2 (InProgress), which meets the committed minimum of 2. Project registration is not a completed assessment attestation.
+
+This repair removes only that obsolete waiver before October 1 00:00 UTC. Policy version 2, all score thresholds, profiles, validator behavior, other waiver dates, permissions, licensing, and release workflows remain unchanged. Tests cover both sides of midnight and reject CII regression or an absent catalog entry. PR #21's exact-JSON/expiry improvements and PR #9's conflicted repository-audit/Administration:read prerequisite remain separate reviews.
+
+The project and its [v0.1.1 preview VSIX](https://github.com/PPadgett/m365-copilot-vscode/releases/tag/v0.1.1) do not expire at this deadline. This change does not establish Marketplace or live tenant readiness.
 
 ## Context-specific policy profiles
 

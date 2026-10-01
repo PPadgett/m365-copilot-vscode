@@ -14,7 +14,7 @@ test('repository profile accepts passing checks and active, documented waivers',
   const result = evaluate(makeSarif({
     CodeReviewID: 0,
     MaintainedID: 0,
-    CIIBestPracticesID: 0
+    CIIBestPracticesID: 2
   }), committedPolicy, '2026-08-12T00:00:00Z', 'repository');
 
   assert.equal(result.status, 0, result.stderr);
@@ -22,7 +22,7 @@ test('repository profile accepts passing checks and active, documented waivers',
   assert.equal(result.report.profile, 'repository');
   assert.deepEqual(
     result.report.checks.filter(check => check.status === 'waived').map(check => check.ruleId).sort(),
-    ['CIIBestPracticesID', 'CodeReviewID', 'MaintainedID']
+    ['CodeReviewID', 'MaintainedID']
   );
 });
 
@@ -34,7 +34,7 @@ test('repository profile fails non-waived security regressions', () => {
     SASTID: 0,
     CodeReviewID: 0,
     MaintainedID: 0,
-    CIIBestPracticesID: 0
+    CIIBestPracticesID: 2
   }), committedPolicy, '2026-08-12T00:00:00Z', 'repository');
 
   assert.notEqual(result.status, 0);
@@ -48,13 +48,13 @@ test('repository profile fails non-waived security regressions', () => {
 });
 
 test('repository profile applies active waivers to absent repository-history checks', () => {
-  const ruleIds = configuredIds.filter(id => !['CodeReviewID', 'MaintainedID', 'CIIBestPracticesID'].includes(id));
+  const ruleIds = configuredIds.filter(id => !['CodeReviewID', 'MaintainedID'].includes(id));
   const result = evaluate(makeSarif({}, ruleIds), committedPolicy, '2026-08-12T00:00:00Z', 'repository');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(
     result.report.checks.filter(check => check.status === 'waived').map(check => check.ruleId).sort(),
-    ['CIIBestPracticesID', 'CodeReviewID', 'MaintainedID']
+    ['CodeReviewID', 'MaintainedID']
   );
 });
 
@@ -117,6 +117,24 @@ test('Scorecard policy rejects unknown profiles', () => {
   const result = evaluate(makeSarif({}), committedPolicy, '2026-08-12T00:00:00Z', 'unknown');
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown Scorecard policy profile/);
+});
+
+for (const date of ['2026-09-30T23:59:59.999Z', '2026-10-01T00:00:00.000Z']) {
+  test('CII score 2 passes without a waiver at ' + date, () => {
+    assert.equal(committedPolicy.checks.CIIBestPracticesID.waiver, undefined);
+    const result = evaluate(makeSarif({ CIIBestPracticesID: 2 }), committedPolicy, date, 'repository');
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.report.checks.find(check => check.ruleId === 'CIIBestPracticesID').status, 'pass');
+  });
+}
+
+test('CII regression and missing catalog entry fail after midnight without a waiver', () => {
+  for (const sarif of [makeSarif({ CIIBestPracticesID: 0 }),
+    makeSarif({}, configuredIds.filter(id => id !== 'CIIBestPracticesID'))]) {
+    const result = evaluate(sarif, committedPolicy, '2026-10-01T00:00:00Z', 'repository');
+    assert.notEqual(result.status, 0);
+    assert.equal(result.report.checks.find(check => check.ruleId === 'CIIBestPracticesID').status, 'fail');
+  }
 });
 
 function evaluate(sarif, policy, date, profile) {
