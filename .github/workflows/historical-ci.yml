@@ -96,7 +96,7 @@ jobs:
           docker --config "$RUNNER_TEMP/historical-docker" run --rm --pull=always --platform linux/amd64 \
             --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges \
             --pids-limit=256 --memory=2g --cpus=2 --read-only \
-            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env HOME=/tmp \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env NPM_CONFIG_CACHE=/tmp/npm \
             --mount "type=bind,source=$GITHUB_WORKSPACE/historical,target=/work" --workdir /work \
             node:22-bookworm-slim@sha256:25330af3531fb5e23318554a0aa911125b6e91b1b777edf7655501d207c067a2 \
             sh -c 'npm ci --ignore-scripts --cache /tmp/npm'
@@ -105,7 +105,7 @@ jobs:
           docker --config "$RUNNER_TEMP/historical-docker" run --rm --pull=never --platform linux/amd64 \
             --network=none --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges \
             --pids-limit=256 --memory=2g --cpus=2 --read-only \
-            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env HOME=/tmp \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m --env NPM_CONFIG_CACHE=/tmp/npm \
             --mount "type=bind,source=$GITHUB_WORKSPACE/historical,target=/work" --workdir /work \
             node:22-bookworm-slim@sha256:25330af3531fb5e23318554a0aa911125b6e91b1b777edf7655501d207c067a2 \
             sh -c 'npm test'
